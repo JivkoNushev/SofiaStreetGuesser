@@ -3,7 +3,7 @@
 -- Profiles table (one per auth user)
 create table public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
-  username   text unique not null,
+  username   text unique not null check (char_length(username) between 1 and 64),
   avatar_url text,
   created_at timestamptz default now() not null
 );
@@ -13,12 +13,12 @@ create table public.scores (
   id          bigserial primary key,
   user_id     uuid references public.profiles(id) on delete cascade not null,
   mode        text not null check (mode in ('easy', 'normal', 'hard', 'district', 'neighbourhood')),
-  submode     text,
-  correct     smallint not null,
-  wrong       smallint not null default 0,
-  skipped     smallint not null default 0,
-  total       smallint not null,
-  duration_ms integer not null,
+  submode     text check (submode is null or char_length(submode) <= 100),
+  correct     smallint not null check (correct >= 0),
+  wrong       smallint not null default 0 check (wrong >= 0),
+  skipped     smallint not null default 0 check (skipped >= 0),
+  total       smallint not null check (total > 0 and correct <= total),
+  duration_ms integer not null check (duration_ms > 0),
   played_at   timestamptz default now() not null
 );
 
@@ -58,11 +58,17 @@ create policy "Profiles are publicly readable"
 create policy "Users can update their own profile"
   on public.profiles for update using (auth.uid() = id);
 
+create policy "Users can delete their own profile"
+  on public.profiles for delete using (auth.uid() = id);
+
 create policy "Scores are publicly readable"
   on public.scores for select using (true);
 
 create policy "Authenticated users can insert their own scores"
   on public.scores for insert with check (auth.uid() = user_id);
+
+create policy "Users can delete their own scores"
+  on public.scores for delete using (auth.uid() = user_id);
 
 -- Auto-create profile on sign-up
 create or replace function public.handle_new_user()
@@ -71,7 +77,7 @@ begin
   insert into public.profiles (id, username, avatar_url)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'preferred_username', split_part(new.email, '@', 1)),
+    left(coalesce(new.raw_user_meta_data->>'preferred_username', split_part(new.email, '@', 1)), 64),
     new.raw_user_meta_data->>'avatar_url'
   )
   on conflict (id) do nothing;

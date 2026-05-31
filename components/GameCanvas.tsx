@@ -14,6 +14,27 @@ import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import type { StreetInfo } from '@/lib/streetData';
 
+const VALID_MODES = new Set(['easy', 'normal', 'hard', 'district', 'neighbourhood']);
+
+function isValidPendingScore(v: unknown): v is {
+  mode: string; submode: string | null;
+  correct: number; wrong: number; skipped: number; total: number; duration_ms: number;
+} {
+  if (!v || typeof v !== 'object') return false;
+  const p = v as Record<string, unknown>;
+  const isInt = (x: unknown, min: number, max: number) =>
+    typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
+  return (
+    typeof p.mode === 'string' && VALID_MODES.has(p.mode) &&
+    (p.submode === null || (typeof p.submode === 'string' && p.submode.length <= 100)) &&
+    isInt(p.total, 1, 200) &&
+    isInt(p.correct, 0, p.total as number) &&
+    isInt(p.wrong,   0, p.total as number) &&
+    isInt(p.skipped, 0, p.total as number) &&
+    isInt(p.duration_ms, 1, 4 * 60 * 60 * 1000)
+  );
+}
+
 export interface AuthUser {
   id: string;
   username: string | null;
@@ -209,20 +230,22 @@ export default function GameCanvas() {
 
         // Save any score that was pending before the OAuth redirect
         const pendingRaw = localStorage.getItem('ssg_pending_score');
+        localStorage.removeItem('ssg_pending_score');
         if (pendingRaw) {
-          localStorage.removeItem('ssg_pending_score');
           try {
-            const pending = JSON.parse(pendingRaw);
-            const res = await fetch('/api/scores', {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body:    JSON.stringify(pending),
-            });
-            if (res.ok) {
-              const { rank } = await res.json();
-              setSavedNotice({ rank, mode: pending.mode, submode: pending.submode ?? null });
+            const pending: unknown = JSON.parse(pendingRaw);
+            if (isValidPendingScore(pending)) {
+              const res = await fetch('/api/scores', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(pending),
+              });
+              if (res.ok) {
+                const { rank } = await res.json();
+                setSavedNotice({ rank, mode: pending.mode, submode: pending.submode ?? null });
+              }
             }
-          } catch { /* ignore */ }
+          } catch { /* ignore malformed localStorage data */ }
         }
 
         dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
