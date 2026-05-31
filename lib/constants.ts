@@ -22,7 +22,7 @@ export const ST = {
 export const OVERPASS = 'https://overpass-api.de/api/interpreter';
 
 export const MAIN_QUERY = `[out:json][timeout:60];
-(way["highway"~"^(trunk|primary|secondary|tertiary|residential)$"]["name"](42.63,23.25,42.74,23.43););
+(way["highway"~"^(trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"]["name"](42.63,23.25,42.74,23.43););
 out geom;`;
 
 export const TILE_URL =

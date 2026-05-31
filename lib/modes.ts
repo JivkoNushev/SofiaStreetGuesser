@@ -23,7 +23,7 @@ export const MODES: Record<string, ModeConfig> = {
   },
   hard: {
     label:    'Hard',
-    highways: new Set(['trunk', 'primary', 'secondary', 'tertiary', 'residential']),
+    highways: new Set(['trunk', 'primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'living_street']),
     max:      150,
   },
 };

@@ -20,8 +20,10 @@ function cacheSet(key: string, entry: CacheEntry) {
   cache.set(key, entry);
 }
 
+const HW_FILTER = '"highway"~"^(trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"';
+
 function mainQuery() {
-  return `[out:json][timeout:60];\n(way["highway"~"^(trunk|primary|secondary|tertiary|residential)$"]["name"](42.63,23.25,42.74,23.43););\nout geom;`;
+  return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](42.63,23.25,42.74,23.43););\nout geom;`;
 }
 
 function districtQuery(name: string) {
@@ -30,7 +32,7 @@ function districtQuery(name: string) {
   return (
     `[out:json][timeout:60];\n` +
     `area["name"="${safe}"][boundary=administrative]->.a;\n` +
-    `(way["highway"~"^(trunk|primary|secondary|tertiary|residential)$"]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
     `out geom;`
   );
 }
@@ -43,7 +45,7 @@ function neighbourhoodQuery(name: string) {
     `  area["name"="${safe}"]["place"~"^(neighbourhood|suburb|quarter)$"];\n` +
     `  area["name"="${safe}"][boundary=administrative];\n` +
     `)->.a;\n` +
-    `(way["highway"~"^(trunk|primary|secondary|tertiary|residential)$"]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
     `out geom;`
   );
 }

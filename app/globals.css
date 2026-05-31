@@ -220,9 +220,11 @@ a { color: inherit; text-decoration: none; }
   display: inline-block;
 }
 
-.cardEasy   .modeCardCount { background: rgba(74,222,128,.1);  color: #4ade80; }
-.cardNormal .modeCardCount { background: rgba(251,191,36,.1);  color: #fbbf24; }
-.cardHard   .modeCardCount { background: rgba(248,113,113,.1); color: #f87171; }
+.cardEasy          .modeCardCount { background: rgba(74,222,128,.1);  color: #4ade80; }
+.cardNormal        .modeCardCount { background: rgba(251,191,36,.1);  color: #fbbf24; }
+.cardHard          .modeCardCount { background: rgba(248,113,113,.1); color: #f87171; }
+.cardDistrict      .modeCardCount { background: rgba(34,211,238,.1);  color: #22d3ee; }
+.cardNeighbourhood .modeCardCount { background: rgba(251,146,60,.1);  color: #fb923c; }
 
 .modePrivacy {
   margin-top: 1.4rem;
