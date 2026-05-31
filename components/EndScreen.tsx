@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import { fmt } from '@/lib/utils';
+import type { AuthUser } from './GameCanvas';
 
 interface Props {
   mode:       string;
@@ -13,49 +13,45 @@ interface Props {
   skipped:    number;
   total:      number;
   durationMs: number;
+  user:       AuthUser | null | undefined;
+  // undefined = Supabase not configured; null = guest; AuthUser = signed in
   onPlayAgain: () => void;
   onQuit:      () => void;
 }
 
-export default function EndScreen({ mode, submode, correct, wrong, skipped, total, durationMs, onPlayAgain, onQuit }: Props) {
-  const [saving, setSaving]  = useState(false);
-  const [rank,   setRank]    = useState<number | null>(null);
-  const [saved,  setSaved]   = useState(false);
-  const [user,   setUser]    = useState<{ id: string } | null | undefined>(undefined);
+export default function EndScreen({ mode, submode, correct, wrong, skipped, total, durationMs, user, onPlayAgain, onQuit }: Props) {
+  const [saving, setSaving] = useState(() => user != null && user !== undefined);
+  const [rank,   setRank]   = useState<number | null>(null);
+  const [saved,  setSaved]  = useState(false);
+  const [saveErr, setSaveErr] = useState(false);
+  const didSave = useRef(false);
   const accuracy = Math.round((correct / total) * 100);
-  const supabaseReady = isSupabaseConfigured();
 
+  // Auto-save when logged in
   useEffect(() => {
-    if (!supabaseReady) { setUser(null); return; }
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
-  }, [supabaseReady]);
+    if (!user || didSave.current) return;
+    didSave.current = true;
+    setSaving(true);
+    fetch('/api/scores', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ mode, submode, correct, wrong, skipped, total, duration_ms: durationMs }),
+    })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => { setRank(data.rank); setSaved(true); })
+      .catch(() => setSaveErr(true))
+      .finally(() => setSaving(false));
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSignIn() {
-    if (!supabaseReady) return;
+  async function handleLoginToSave() {
+    localStorage.setItem('ssg_pending_score', JSON.stringify({
+      mode, submode, correct, wrong, skipped, total, duration_ms: durationMs,
+    }));
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options:  { redirectTo: `${window.location.origin}/auth/callback?next=/` },
     });
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/scores', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ mode, submode, correct, wrong, skipped, total, duration_ms: durationMs }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRank(data.rank);
-        setSaved(true);
-      }
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
@@ -93,29 +89,25 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
         <div className="endActions">
           <button className="btnAgain" onClick={onPlayAgain}>Play Again</button>
 
-          {saved && rank !== null && (
-            <div className="rankBadge">You ranked #{rank} on the {submode ?? mode} leaderboard!</div>
+          {/* Logged in: auto-save feedback */}
+          {user != null && user !== undefined && (
+            saving
+              ? <p className="savingMsg">Saving your score…</p>
+              : saved
+                ? <div className="rankBadge">
+                    {rank !== null
+                      ? `You ranked #${rank} on the ${submode ?? mode} leaderboard!`
+                      : 'Score saved to the leaderboard!'}
+                  </div>
+                : saveErr
+                  ? <p className="savingMsg" style={{ color: 'var(--wrong)' }}>Could not save score — try again later</p>
+                  : null
           )}
 
-          {/* auth UI only shown once we know auth state */}
-          {!saved && supabaseReady && user === null && (
-            <div>
-              <p className="signInPrompt">Sign in to save your score to the leaderboard</p>
-              <button className="btnGoogle" onClick={handleSignIn}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Sign in with Google
-              </button>
-            </div>
-          )}
-
-          {!saved && supabaseReady && user !== null && user !== undefined && (
-            <button className="btnSaveScore" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save to Leaderboard'}
+          {/* Guest: login to save */}
+          {user === null && (
+            <button className="btnLoginSave" onClick={handleLoginToSave}>
+              Log in to join the leaderboard
             </button>
           )}
 

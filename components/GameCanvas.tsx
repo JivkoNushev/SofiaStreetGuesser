@@ -4,14 +4,23 @@ import { useReducer, useEffect, useRef, useCallback, useState } from 'react';
 import Link from 'next/link';
 import GameMap, { StreetStatus } from './GameMap';
 import EndScreen from './EndScreen';
+import AuthScreen from './AuthScreen';
 import DistrictPicker from './DistrictPicker';
 import NeighbourhoodPicker from './NeighbourhoodPicker';
 import { CFG } from '@/lib/constants';
 import { MODES } from '@/lib/modes';
 import { shuffle, fmt } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import type { StreetInfo } from '@/lib/streetData';
 
-type Phase = 'loading' | 'mode-select' | 'district-picker' | 'neighbourhood-picker' | 'playing' | 'ended';
+export interface AuthUser {
+  id: string;
+  username: string | null;
+  avatarUrl: string | null;
+}
+
+type Phase = 'loading' | 'auth-select' | 'mode-select' | 'district-picker' | 'neighbourhood-picker' | 'playing' | 'ended';
 
 interface GameState {
   phase:       Phase;
@@ -143,8 +152,17 @@ function reducer(state: GameState, action: Action): GameState {
 
 let mainStreetInfo: StreetInfo | null = null;
 
+interface SavedScoreNotice {
+  rank: number | null;
+  mode: string;
+  submode: string | null;
+}
+
 export default function GameCanvas() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
+  const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
+  // undefined = auth not yet checked; null = guest; AuthUser = signed in
+  const [savedNotice, setSavedNotice] = useState<SavedScoreNotice | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: 'c' | 'w'; key: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -154,22 +172,62 @@ export default function GameCanvas() {
     setToast({ msg, kind, key: Date.now() });
   }, []);
 
-  // Load main street data on mount
+  // Load main street data then check auth
   useEffect(() => {
-    if (mainStreetInfo) {
-      dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
-      return;
-    }
     (async () => {
-      dispatch({ type: 'LOAD_MSG', msg: 'Fetching street data from OpenStreetMap…' });
-      try {
-        const res = await fetch('/api/streets?mode=main');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        mainStreetInfo = json.streets;
+      // Load street data if not cached
+      if (!mainStreetInfo) {
+        dispatch({ type: 'LOAD_MSG', msg: 'Fetching street data from OpenStreetMap…' });
+        try {
+          const res = await fetch('/api/streets?mode=main');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          mainStreetInfo = (await res.json()).streets;
+        } catch (err: unknown) {
+          dispatch({ type: 'LOAD_ERR', err: `Error: ${err instanceof Error ? err.message : 'Network error'}` });
+          return;
+        }
+      }
+
+      // Check auth state
+      if (!isSupabaseConfigured()) {
         dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
-      } catch (err: unknown) {
-        dispatch({ type: 'LOAD_ERR', err: `Error: ${err instanceof Error ? err.message : 'Network error'}` });
+        return;
+      }
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('id', authUser.id)
+          .single();
+        setUser({
+          id: authUser.id,
+          username: profile?.username ?? null,
+          avatarUrl: profile?.avatar_url ?? null,
+        });
+
+        // Save any score that was pending before the OAuth redirect
+        const pendingRaw = localStorage.getItem('ssg_pending_score');
+        if (pendingRaw) {
+          localStorage.removeItem('ssg_pending_score');
+          try {
+            const pending = JSON.parse(pendingRaw);
+            const res = await fetch('/api/scores', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify(pending),
+            });
+            if (res.ok) {
+              const { rank } = await res.json();
+              setSavedNotice({ rank, mode: pending.mode, submode: pending.submode ?? null });
+            }
+          } catch { /* ignore */ }
+        }
+
+        dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
+      } else {
+        dispatch({ type: 'SET_PHASE', phase: 'auth-select' });
       }
     })();
   }, []);
@@ -198,7 +256,6 @@ export default function GameCanvas() {
     const all  = Object.entries(mainStreetInfo)
       .filter(([n, info]) => cfg.highways.has(info.bestHighway as never) && (!cfg.nameFilter || cfg.nameFilter(n)));
     const names = shuffle(all.map(([n]) => n)).slice(0, cfg.max);
-    // only pass the selected streets to the map — not all of mainStreetInfo
     const selectedStreetInfo: StreetInfo = {};
     for (const name of names) selectedStreetInfo[name] = mainStreetInfo[name];
     dispatch({ type: 'BEGIN_GAME', streetInfo: selectedStreetInfo, names, mode, submode: null });
@@ -250,7 +307,6 @@ export default function GameCanvas() {
       const newAttempts = state.attempts + 1;
       dispatch({ type: 'WRONG', name, newAttempts });
 
-      // flash the clicked wrong polyline — just a visual, handled by a temp status trick
       if (newAttempts >= CFG.maxAttempts) {
         dispatch({ type: 'REVEAL', name: target });
         showToast('✗  Time\'s up — revealing street', 'w');
@@ -266,6 +322,14 @@ export default function GameCanvas() {
     if (state.blocked || state.names.length - state.idx <= 1) return;
     dispatch({ type: 'SKIP' });
   }, [state.blocked, state.idx, state.names.length]);
+
+  const handleSignOut = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(undefined);
+    dispatch({ type: 'SET_PHASE', phase: 'auth-select' });
+  }, []);
 
   const modeLabel = state.mode === 'district' || state.mode === 'neighbourhood'
     ? (state.submode ?? state.mode)
@@ -295,6 +359,17 @@ export default function GameCanvas() {
     );
   }
 
+  if (state.phase === 'auth-select') {
+    return (
+      <AuthScreen
+        onGuest={() => {
+          setUser(null);
+          dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
+        }}
+      />
+    );
+  }
+
   if (state.phase === 'mode-select') {
     const info = mainStreetInfo ?? {};
     const counts = { easy: 0, normal: 0, hard: 0 };
@@ -307,7 +382,32 @@ export default function GameCanvas() {
     }
     return (
       <div className="modeScreen">
+        {/* User widget — top right */}
+        <div className="authNav">
+          {user !== undefined && (
+            user ? (
+              <>
+                <span className="authNavUsername">{user.username ?? 'Player'}</span>
+                <button className="authNavBtn" onClick={handleSignOut}>Sign out</button>
+              </>
+            ) : (
+              <button className="authNavBtn" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'auth-select' })}>
+                Sign in
+              </button>
+            )
+          )}
+          <Link href="/leaderboard" className="leaderboardLink">Leaderboard</Link>
+        </div>
+
         <div className="modeInner">
+          {savedNotice && (
+            <div className="scoreSavedBanner">
+              {savedNotice.rank !== null
+                ? `Score saved! You ranked #${savedNotice.rank} on the ${savedNotice.submode ?? savedNotice.mode} leaderboard.`
+                : 'Score saved to the leaderboard!'}
+              <button className="scoreSavedClose" onClick={() => setSavedNotice(null)}>×</button>
+            </div>
+          )}
           <span className="modeLogo">🗺️</span>
           <h1>Sofia Street Guesser</h1>
           <p className="modeSub">How well do you know the streets of Sofia?</p>
@@ -356,8 +456,6 @@ export default function GameCanvas() {
           </div>
           <div className="modePrivacy">
             <Link href="/privacy">Privacy Policy</Link>
-            {' · '}
-            <Link href="/leaderboard">Leaderboard</Link>
           </div>
         </div>
       </div>
@@ -394,6 +492,13 @@ export default function GameCanvas() {
             <span className="gameTitle">Sofia Street Guesser</span>
             <span className={`modePill ${state.mode}`}>{modeLabel}</span>
           </div>
+          {user !== undefined && (
+            <div className="userRow">
+              <span className="userChip">
+                {user ? (user.username ?? 'Player') : 'Guest'}
+              </span>
+            </div>
+          )}
           <div className="hud">
             <div className="hudCell">
               <span className="hudLabel">Time</span>
@@ -495,6 +600,7 @@ export default function GameCanvas() {
           skipped={state.skipped}
           total={state.names.length}
           durationMs={elapsed}
+          user={user}
           onPlayAgain={() => {
             if (state.mode === 'district') startDistrictMode(state.submode!);
             else if (state.mode === 'neighbourhood') startNeighbourhoodMode(state.submode!);
