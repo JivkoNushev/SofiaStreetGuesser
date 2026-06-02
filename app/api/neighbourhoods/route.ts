@@ -24,7 +24,11 @@ export async function GET() {
     try {
       const res = await fetch(OVERPASS, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent':   'SofiaStreetGuesser/2.0 (https://sofia-street-guesser.vercel.app)',
+          'Accept':       'application/json',
+        },
         body:    'data=' + encodeURIComponent(QUERY),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
