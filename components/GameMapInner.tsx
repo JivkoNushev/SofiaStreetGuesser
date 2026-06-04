@@ -16,11 +16,13 @@ interface Props {
 }
 
 export default function GameMapInner({ streetInfo, status, onClickStreet, revealTarget }: Props) {
-  const mapRef        = useRef<L.Map | null>(null);
-  const layersRef     = useRef<Record<string, L.Polyline[]>>({});
-  const clickRef      = useRef(onClickStreet);
-  const statusRef     = useRef(status);
-  const prevStatusRef = useRef<Record<string, StreetStatus>>({});
+  const mapRef          = useRef<L.Map | null>(null);
+  const layersRef       = useRef<Record<string, L.Polyline>>({});
+  const clickRef        = useRef(onClickStreet);
+  const statusRef       = useRef(status);
+  const prevStatusRef   = useRef<Record<string, StreetStatus>>({});
+  const hoveredRef      = useRef<string | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // keep callbacks/state current without recreating polylines
   useEffect(() => { clickRef.current  = onClickStreet; });
@@ -39,28 +41,47 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
     const map = mapRef.current;
     if (!map) return;
 
-    // remove existing polylines
-    Object.values(layersRef.current).flat().forEach(l => l.remove());
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    hoveredRef.current = null;
+    Object.values(layersRef.current).forEach(l => l.remove());
     layersRef.current = {};
     prevStatusRef.current = {};
 
-    for (const name of Object.keys(streetInfo)) {
-      layersRef.current[name] = [];
-      for (const coords of streetInfo[name].coords) {
-        const pl = L.polyline(coords as [number, number][], { ...ST.idle, interactive: true }).addTo(map);
-        pl.on('mouseover', () => {
-          if (statusRef.current[name] === 'pending') {
-            pl.setStyle(ST.hover);
-            map.getContainer().style.cursor = 'pointer';
-          }
-        });
-        pl.on('mouseout', () => {
-          map.getContainer().style.cursor = '';
-          if (statusRef.current[name] === 'pending') pl.setStyle(ST.idle);
-        });
-        pl.on('click', (e) => { L.DomEvent.stopPropagation(e); clickRef.current(name); });
-        layersRef.current[name].push(pl);
+    const setStreetHover = (name: string | null) => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
       }
+
+      const prev = hoveredRef.current;
+      if (prev && prev !== name && statusRef.current[prev] === 'pending') {
+        layersRef.current[prev]?.setStyle(ST.idle);
+      }
+
+      hoveredRef.current = name;
+
+      if (name && statusRef.current[name] === 'pending') {
+        layersRef.current[name]?.setStyle(ST.hover);
+        map.getContainer().style.cursor = 'pointer';
+      } else {
+        map.getContainer().style.cursor = '';
+      }
+    };
+
+    for (const name of Object.keys(streetInfo)) {
+      const { coords } = streetInfo[name];
+      if (coords.length === 0) continue;
+
+      const pl = L.polyline(coords as [number, number][][], { ...ST.idle, interactive: true }).addTo(map);
+      pl.on('mouseover', () => setStreetHover(name));
+      pl.on('mouseout', () => {
+        hoverTimeoutRef.current = setTimeout(() => setStreetHover(null), 10);
+      });
+      pl.on('click', (e) => { L.DomEvent.stopPropagation(e); clickRef.current(name); });
+      layersRef.current[name] = pl;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streetInfo]);
@@ -70,35 +91,28 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
     for (const [name, s] of Object.entries(status)) {
       if (prevStatusRef.current[name] === s) continue;
       prevStatusRef.current[name] = s;
-      const pls = layersRef.current[name] ?? [];
+      const pl = layersRef.current[name];
+      if (!pl) continue;
+
       if (s === 'correct') {
-        pls.forEach(pl => {
-          pl.setStyle(ST.correct);
-          pl.bindTooltip(name, { sticky: true, className: 'map-tip', direction: 'top', offset: [0, -4] });
-        });
+        pl.setStyle(ST.correct);
+        pl.bindTooltip(name, { sticky: true, className: 'map-tip', direction: 'top', offset: [0, -4] });
       } else if (s === 'wrong') {
-        pls.forEach(pl => {
-          pl.setStyle(ST.wrong);
-          pl.bindTooltip(name, { sticky: true, className: 'map-tip', direction: 'top', offset: [0, -4] });
-        });
+        pl.setStyle(ST.wrong);
+        pl.bindTooltip(name, { sticky: true, className: 'map-tip', direction: 'top', offset: [0, -4] });
       }
     }
   }, [status]);
-
-  // flash wrong guess on a pending street
-  useEffect(() => {
-    // handled via external flash signal — see GameCanvas
-  }, []);
 
   // fly to revealed street when out of attempts
   useEffect(() => {
     if (!revealTarget) return;
     const map = mapRef.current;
     if (!map) return;
-    const pls = layersRef.current[revealTarget] ?? [];
-    if (pls.length === 0) return;
+    const pl = layersRef.current[revealTarget];
+    if (!pl) return;
     try {
-      const bounds = L.featureGroup(pls).getBounds();
+      const bounds = pl.getBounds();
       const pad = window.innerWidth < 1000 ? [20, 20] : [80, 80];
       if (bounds.isValid()) map.flyToBounds(bounds, { padding: pad as [number, number], duration: 1.3 });
     } catch {}
