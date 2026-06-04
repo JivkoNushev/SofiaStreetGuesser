@@ -113,7 +113,8 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
     if (!pl) return;
     try {
       const bounds = pl.getBounds();
-      if (bounds.isValid()) map.flyToBounds(bounds, { padding: [80, 80], duration: 1.3 });
+      const pad = window.innerWidth < 1000 ? [20, 20] : [80, 80];
+      if (bounds.isValid()) map.flyToBounds(bounds, { padding: pad as [number, number], duration: 1.3 });
     } catch {}
   }, [revealTarget]);
 
