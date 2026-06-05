@@ -7,9 +7,10 @@ export interface StreetInfo {
   };
 }
 
-interface OverpassElement {
-  type:     string;
-  tags?:    Record<string, string>;
+export interface OverpassElement {
+  id?:       number;
+  type:      string;
+  tags?:     Record<string, string>;
   geometry?: { lat: number; lon: number }[];
 }
 
@@ -63,26 +64,11 @@ function chooseName(tags: Record<string, string>): string {
 }
 
 export function buildStreetInfo(elements: OverpassElement[]): StreetInfo {
-  // Pass 1: for ways that carry both a Latin name and an explicit name:bg tag,
-  // build a lookup so those Latin-named ways end up under the Bulgarian canonical name.
-  const toBg: Record<string, string> = {};
-  for (const el of elements) {
-    if (el.type !== 'way' || !el.tags?.name || !el.tags['name:bg']) continue;
-    if (hasCyrillic(el.tags.name)) continue; // name is already Cyrillic, skip
-    const bgNorm = normalizeName(el.tags['name:bg']);
-    toBg[el.tags.name]               = bgNorm;
-    toBg[normalizeName(el.tags.name)] = bgNorm;
-  }
-
-  // Pass 2: accumulate geometry, merging ways that share the same canonical name.
   const info: StreetInfo = {};
   for (const el of elements) {
     if (el.type !== 'way' || !el.tags?.name || !el.geometry?.length) continue;
 
-    const raw  = chooseName(el.tags);
-    const norm = normalizeName(raw);
-    // If a Bulgarian equivalent is known for this (possibly Latin) name, prefer it
-    const name = toBg[norm] ?? toBg[raw] ?? norm;
+    const name = normalizeName(chooseName(el.tags));
 
     const hw = el.tags.highway;
     if (!info[name]) {
@@ -94,6 +80,5 @@ export function buildStreetInfo(elements: OverpassElement[]): StreetInfo {
     }
     info[name].coords.push(el.geometry.map(p => [p.lat, p.lon]));
   }
-
   return info;
 }

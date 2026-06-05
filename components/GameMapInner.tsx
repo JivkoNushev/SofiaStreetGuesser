@@ -83,7 +83,6 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
       pl.on('click', (e) => { L.DomEvent.stopPropagation(e); clickRef.current(name); });
       layersRef.current[name] = pl;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streetInfo]);
 
   // update polyline styles when status changes
