@@ -61,7 +61,9 @@ function fullGeomQuery(names: string[]) {
   return `[out:json][timeout:120];\n(\n${parts.join('\n')}\n);\nout geom;`;
 }
 
-async function fetchElementsFromOverpass(query: string): Promise<any[]> {
+interface OverpassElement { tags?: { name?: string }; [key: string]: unknown }
+
+async function fetchElementsFromOverpass(query: string): Promise<OverpassElement[]> {
   const MAX = 3;
   let lastErr: Error | null = null;
   for (let i = 1; i <= MAX; i++) {
@@ -93,7 +95,7 @@ async function fetchFromOverpass(query: string): Promise<StreetInfo> {
 // Two-step fetch: discover names within the district, then get full geometry for those streets
 async function fetchDistrictFull(name: string): Promise<StreetInfo> {
   const elements = await fetchElementsFromOverpass(districtNamesQuery(name));
-  const names = [...new Set(elements.map((el: any) => el.tags?.name).filter(Boolean))];
+  const names = [...new Set(elements.map((el) => el.tags?.name).filter(Boolean))];
   if (names.length === 0) return {};
   return fetchFromOverpass(fullGeomQuery(names as string[]));
 }
@@ -101,7 +103,7 @@ async function fetchDistrictFull(name: string): Promise<StreetInfo> {
 // Two-step fetch: discover names within the neighbourhood, then get full geometry for those streets
 async function fetchNeighbourhoodFull(name: string): Promise<StreetInfo> {
   const elements = await fetchElementsFromOverpass(neighbourhoodNamesQuery(name));
-  const names = [...new Set(elements.map((el: any) => el.tags?.name).filter(Boolean))];
+  const names = [...new Set(elements.map((el) => el.tags?.name).filter(Boolean))];
   if (names.length === 0) return {};
   return fetchFromOverpass(fullGeomQuery(names as string[]));
 }
