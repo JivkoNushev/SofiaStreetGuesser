@@ -33,7 +33,7 @@ function districtNamesQuery(name: string) {
     `[out:json][timeout:60];\n` +
     `area["name"="${safe}"][boundary=administrative]->.a;\n` +
     `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
-    `out tags;`
+    `out geom;`
   );
 }
 
@@ -46,7 +46,7 @@ function neighbourhoodNamesQuery(name: string) {
     `  area["name"="${safe}"][boundary=administrative];\n` +
     `)->.a;\n` +
     `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
-    `out tags;`
+    `out geom;`
   );
 }
 
@@ -87,18 +87,77 @@ async function fetchFromOverpass(query: string): Promise<StreetInfo> {
   return buildStreetInfo(await fetchElementsFromOverpass(query));
 }
 
+function filterConnectedToInside(
+  all: OverpassElement[],
+  insideIds: Set<number>,
+): OverpassElement[] {
+  // Group valid (way + geometry + name) elements by street name
+  const byName = new Map<string, OverpassElement[]>();
+  for (const el of all) {
+    const name = el.tags?.name;
+    if (el.type !== 'way' || !name || !el.geometry?.length) continue;
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name)!.push(el);
+  }
+
+  const result: OverpassElement[] = [];
+
+  for (const segs of byName.values()) {
+    const n = segs.length;
+    // Union-Find
+    const parent = Array.from({ length: n }, (_, i) => i);
+    function find(x: number): number {
+      if (parent[x] !== x) parent[x] = find(parent[x]);
+      return parent[x];
+    }
+    function union(x: number, y: number) { parent[find(x)] = find(y); }
+
+    // Index endpoints → segment indices
+    const endpointIndex = new Map<string, number[]>();
+    for (let i = 0; i < n; i++) {
+      const g = segs[i].geometry!;
+      for (const pt of [g[0], g[g.length - 1]]) {
+        const key = `${pt.lat},${pt.lon}`;
+        if (!endpointIndex.has(key)) endpointIndex.set(key, []);
+        endpointIndex.get(key)!.push(i);
+      }
+    }
+
+    // Union segments that share an endpoint
+    for (const indices of endpointIndex.values()) {
+      for (let i = 1; i < indices.length; i++) union(indices[0], indices[i]);
+    }
+
+    // Find components that contain at least one inside segment
+    const keepComponents = new Set<number>();
+    for (let i = 0; i < n; i++) {
+      if (insideIds.has(segs[i].id!)) keepComponents.add(find(i));
+    }
+
+    // Collect all segments from those components
+    for (let i = 0; i < n; i++) {
+      if (keepComponents.has(find(i))) result.push(segs[i]);
+    }
+  }
+
+  return result;
+}
+
+async function fetchAreaFull(areaQuery: string): Promise<StreetInfo> {
+  const inside = await fetchElementsFromOverpass(areaQuery);
+  if (inside.length === 0) return {};
+  const names = [...new Set(inside.map(el => el.tags?.name).filter(Boolean))] as string[];
+  const all = await fetchElementsFromOverpass(fullGeomQuery(names));
+  const insideIds = new Set(inside.map(el => el.id).filter((id): id is number => id !== undefined));
+  return buildStreetInfo(filterConnectedToInside(all, insideIds));
+}
+
 async function fetchDistrictFull(name: string): Promise<StreetInfo> {
-  const elements = await fetchElementsFromOverpass(districtNamesQuery(name));
-  const names = [...new Set(elements.map(el => el.tags?.name).filter(Boolean))] as string[];
-  if (names.length === 0) return {};
-  return fetchFromOverpass(fullGeomQuery(names));
+  return fetchAreaFull(districtNamesQuery(name));
 }
 
 async function fetchNeighbourhoodFull(name: string): Promise<StreetInfo> {
-  const elements = await fetchElementsFromOverpass(neighbourhoodNamesQuery(name));
-  const names = [...new Set(elements.map(el => el.tags?.name).filter(Boolean))] as string[];
-  if (names.length === 0) return {};
-  return fetchFromOverpass(fullGeomQuery(names));
+  return fetchAreaFull(neighbourhoodNamesQuery(name));
 }
 
 export async function GET(req: NextRequest) {
