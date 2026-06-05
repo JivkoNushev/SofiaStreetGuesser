@@ -7,7 +7,7 @@ export interface StreetInfo {
   };
 }
 
-interface OverpassElement {
+export interface OverpassElement {
   type:     string;
   tags?:    Record<string, string>;
   geometry?: { lat: number; lon: number }[];

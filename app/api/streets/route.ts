@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildStreetInfo, StreetInfo } from '@/lib/streetData';
+import { buildStreetInfo, StreetInfo, OverpassElement } from '@/lib/streetData';
 import { OVERPASS } from '@/lib/constants';
 import { DISTRICTS } from '@/lib/modes';
 
@@ -60,8 +60,6 @@ function fullGeomQuery(names: string[]) {
   });
   return `[out:json][timeout:120];\n(\n${parts.join('\n')}\n);\nout geom;`;
 }
-
-interface OverpassElement { tags?: { name?: string }; [key: string]: unknown }
 
 async function fetchElementsFromOverpass(query: string): Promise<OverpassElement[]> {
   const MAX = 3;
