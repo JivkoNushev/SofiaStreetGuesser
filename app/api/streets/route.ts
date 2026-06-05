@@ -27,7 +27,6 @@ function mainQuery() {
   return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](${WIDE_BBOX}););\nout geom;`;
 }
 
-// Returns names of streets within the district (tags only, no geometry — fast first pass)
 function districtNamesQuery(name: string) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
@@ -38,7 +37,6 @@ function districtNamesQuery(name: string) {
   );
 }
 
-// Returns names of streets within the neighbourhood (tags only, no geometry — fast first pass)
 function neighbourhoodNamesQuery(name: string) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
@@ -52,7 +50,6 @@ function neighbourhoodNamesQuery(name: string) {
   );
 }
 
-// Fetches full geometry for a list of street names across all of Sofia (no area constraint)
 function fullGeomQuery(names: string[]) {
   const parts = names.map(n => {
     const safe = n.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -90,20 +87,18 @@ async function fetchFromOverpass(query: string): Promise<StreetInfo> {
   return buildStreetInfo(await fetchElementsFromOverpass(query));
 }
 
-// Two-step fetch: discover names within the district, then get full geometry for those streets
 async function fetchDistrictFull(name: string): Promise<StreetInfo> {
   const elements = await fetchElementsFromOverpass(districtNamesQuery(name));
-  const names = [...new Set(elements.map((el) => el.tags?.name).filter(Boolean))];
+  const names = [...new Set(elements.map(el => el.tags?.name).filter(Boolean))] as string[];
   if (names.length === 0) return {};
-  return fetchFromOverpass(fullGeomQuery(names as string[]));
+  return fetchFromOverpass(fullGeomQuery(names));
 }
 
-// Two-step fetch: discover names within the neighbourhood, then get full geometry for those streets
 async function fetchNeighbourhoodFull(name: string): Promise<StreetInfo> {
   const elements = await fetchElementsFromOverpass(neighbourhoodNamesQuery(name));
-  const names = [...new Set(elements.map((el) => el.tags?.name).filter(Boolean))];
+  const names = [...new Set(elements.map(el => el.tags?.name).filter(Boolean))] as string[];
   if (names.length === 0) return {};
-  return fetchFromOverpass(fullGeomQuery(names as string[]));
+  return fetchFromOverpass(fullGeomQuery(names));
 }
 
 export async function GET(req: NextRequest) {
