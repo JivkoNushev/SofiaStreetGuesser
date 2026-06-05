@@ -605,7 +605,7 @@ export default function GameCanvas() {
           onClickStreet={handleClickStreet}
           revealTarget={state.revealTarget}
         />
-        <div className="hintBar">Click on the highlighted street to guess</div>
+        <div className="hintBar">Tap the highlighted street to guess</div>
         {toast && (
           <div key={toast.key} className={`toast show ${toast.kind}`}>
             {toast.msg}
