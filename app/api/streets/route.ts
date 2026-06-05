@@ -27,6 +27,15 @@ function mainQuery() {
   return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](${WIDE_BBOX}););\nout geom;`;
 }
 
+function mainInsideQuery() {
+  return (
+    `[out:json][timeout:60];\n` +
+    `area["name"="София"][boundary=administrative]->.a;\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `out geom;`
+  );
+}
+
 function districtNamesQuery(name: string) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
@@ -83,9 +92,6 @@ async function fetchElementsFromOverpass(query: string): Promise<OverpassElement
   throw lastErr;
 }
 
-async function fetchFromOverpass(query: string): Promise<StreetInfo> {
-  return buildStreetInfo(await fetchElementsFromOverpass(query));
-}
 
 function filterConnectedToInside(
   all: OverpassElement[],
@@ -152,6 +158,17 @@ async function fetchAreaFull(areaQuery: string): Promise<StreetInfo> {
   return buildStreetInfo(filterConnectedToInside(all, insideIds));
 }
 
+async function fetchMainFull(): Promise<StreetInfo> {
+  const [inside, all] = await Promise.all([
+    fetchElementsFromOverpass(mainInsideQuery()),
+    fetchElementsFromOverpass(mainQuery()),
+  ]);
+  const insideIds = new Set(
+    inside.map(el => el.id).filter((id): id is number => id !== undefined)
+  );
+  return buildStreetInfo(filterConnectedToInside(all, insideIds));
+}
+
 async function fetchDistrictFull(name: string): Promise<StreetInfo> {
   return fetchAreaFull(districtNamesQuery(name));
 }
@@ -195,7 +212,7 @@ export async function GET(req: NextRequest) {
     let data: StreetInfo;
     if (mode === 'district')           data = await fetchDistrictFull(name);
     else if (mode === 'neighbourhood') data = await fetchNeighbourhoodFull(name);
-    else                               data = await fetchFromOverpass(mainQuery());
+    else                               data = await fetchMainFull();
 
     if (mode !== 'main' && Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'No streets found' }, { status: 404 });
