@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npx tsx scripts/prepare-streets.ts && next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "tsc --noEmit && next lint"
+    "check": "tsc --noEmit && next lint",
+    "download-streets": "npx tsx scripts/download-streets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

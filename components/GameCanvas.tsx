@@ -198,9 +198,10 @@ export default function GameCanvas() {
     (async () => {
       // Load street data if not cached
       if (!mainStreetInfo) {
-        dispatch({ type: 'LOAD_MSG', msg: 'Fetching street data from OpenStreetMap…' });
+        dispatch({ type: 'LOAD_MSG', msg: 'Loading street data…' });
         try {
-          const res = await fetch('/api/streets?mode=main');
+          let res = await fetch('/data/streets/main.json');
+          if (!res.ok) res = await fetch('/api/streets?mode=main');
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           mainStreetInfo = (await res.json()).streets;
         } catch (err: unknown) {
@@ -286,9 +287,11 @@ export default function GameCanvas() {
 
   const startDistrictMode = useCallback(async (districtName: string) => {
     dispatch({ type: 'SET_PHASE', phase: 'loading' });
-    dispatch({ type: 'LOAD_MSG', msg: `Fetching streets in ${districtName}…` });
+    dispatch({ type: 'LOAD_MSG', msg: `Loading streets in ${districtName}…` });
     try {
-      const res = await fetch(`/api/streets?mode=district&name=${encodeURIComponent(districtName)}`);
+      const slug = encodeURIComponent(districtName);
+      let res = await fetch(`/data/streets/district-${slug}.json`);
+      if (!res.ok) res = await fetch(`/api/streets?mode=district&name=${slug}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { streets } = await res.json();
       const names = shuffle(Object.keys(streets));
