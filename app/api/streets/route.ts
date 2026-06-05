@@ -21,23 +21,25 @@ function cacheSet(key: string, entry: CacheEntry) {
 }
 
 const HW_FILTER = '"highway"~"^(trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"';
+const WIDE_BBOX = '42.45,23.05,42.92,23.70';
 
 function mainQuery() {
-  return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](42.63,23.25,42.74,23.43););\nout geom;`;
+  return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](${WIDE_BBOX}););\nout geom;`;
 }
 
-function districtQuery(name: string) {
-  // name is validated against the DISTRICTS allowlist before reaching here
+// Returns names of streets within the district (tags only, no geometry — fast first pass)
+function districtNamesQuery(name: string) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
     `[out:json][timeout:60];\n` +
     `area["name"="${safe}"][boundary=administrative]->.a;\n` +
-    `(way[${HW_FILTER}]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
-    `out geom;`
+    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `out tags;`
   );
 }
 
-function neighbourhoodQuery(name: string) {
+// Returns names of streets within the neighbourhood (tags only, no geometry — fast first pass)
+function neighbourhoodNamesQuery(name: string) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
     `[out:json][timeout:60];\n` +
@@ -45,12 +47,21 @@ function neighbourhoodQuery(name: string) {
     `  area["name"="${safe}"]["place"~"^(neighbourhood|suburb|quarter)$"];\n` +
     `  area["name"="${safe}"][boundary=administrative];\n` +
     `)->.a;\n` +
-    `(way[${HW_FILTER}]["name"](area.a)(42.45,23.05,42.92,23.70););\n` +
-    `out geom;`
+    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `out tags;`
   );
 }
 
-async function fetchFromOverpass(query: string): Promise<StreetInfo> {
+// Fetches full geometry for a list of street names across all of Sofia (no area constraint)
+function fullGeomQuery(names: string[]) {
+  const parts = names.map(n => {
+    const safe = n.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `way[${HW_FILTER}]["name"="${safe}"](${WIDE_BBOX});`;
+  });
+  return `[out:json][timeout:120];\n(\n${parts.join('\n')}\n);\nout geom;`;
+}
+
+async function fetchElementsFromOverpass(query: string): Promise<any[]> {
   const MAX = 3;
   let lastErr: Error | null = null;
   for (let i = 1; i <= MAX; i++) {
@@ -67,12 +78,32 @@ async function fetchFromOverpass(query: string): Promise<StreetInfo> {
       });
       if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
       const json = await res.json();
-      return buildStreetInfo(json.elements);
+      return json.elements ?? [];
     } catch (err) {
       lastErr = err as Error;
     }
   }
   throw lastErr;
+}
+
+async function fetchFromOverpass(query: string): Promise<StreetInfo> {
+  return buildStreetInfo(await fetchElementsFromOverpass(query));
+}
+
+// Two-step fetch: discover names within the district, then get full geometry for those streets
+async function fetchDistrictFull(name: string): Promise<StreetInfo> {
+  const elements = await fetchElementsFromOverpass(districtNamesQuery(name));
+  const names = [...new Set(elements.map((el: any) => el.tags?.name).filter(Boolean))];
+  if (names.length === 0) return {};
+  return fetchFromOverpass(fullGeomQuery(names as string[]));
+}
+
+// Two-step fetch: discover names within the neighbourhood, then get full geometry for those streets
+async function fetchNeighbourhoodFull(name: string): Promise<StreetInfo> {
+  const elements = await fetchElementsFromOverpass(neighbourhoodNamesQuery(name));
+  const names = [...new Set(elements.map((el: any) => el.tags?.name).filter(Boolean))];
+  if (names.length === 0) return {};
+  return fetchFromOverpass(fullGeomQuery(names as string[]));
 }
 
 export async function GET(req: NextRequest) {
@@ -106,13 +137,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ streets: hit.data, cached: true });
   }
 
-  let query: string;
-  if (mode === 'district')      query = districtQuery(name);
-  else if (mode === 'neighbourhood') query = neighbourhoodQuery(name);
-  else                          query = mainQuery();
-
   try {
-    const data = await fetchFromOverpass(query);
+    let data: StreetInfo;
+    if (mode === 'district')           data = await fetchDistrictFull(name);
+    else if (mode === 'neighbourhood') data = await fetchNeighbourhoodFull(name);
+    else                               data = await fetchFromOverpass(mainQuery());
+
     if (mode !== 'main' && Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'No streets found' }, { status: 404 });
     }
