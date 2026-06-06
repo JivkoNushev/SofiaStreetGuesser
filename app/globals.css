@@ -1323,6 +1323,128 @@ a { color: inherit; text-decoration: none; }
   .lbTable td { font-size: .8rem; padding: .55rem .65rem; }
 }
 
+/* ── Map Preview ─────────────────────────────────────────── */
+.mpScreen {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 35%, #1e0a40 0%, #0d0d17 65%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 9998;
+  overflow-y: auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.mpInner {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: .25rem;
+}
+
+.mpHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.mpMapName {
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #c4b5fd, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.mpLbSection {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.mpLbHeader {
+  padding: .75rem 1rem;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mpLbLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+}
+
+.mpLbEmpty {
+  color: var(--muted);
+  font-size: .88rem;
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.mpLbMore {
+  display: block;
+  text-align: center;
+  padding: .6rem;
+  font-size: .78rem;
+  color: var(--accL);
+  border-top: 1px solid var(--border);
+  transition: background .18s ease;
+  text-decoration: none;
+}
+.mpLbMore:hover { background: rgba(124,58,237,.08); }
+
+.mpActions {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+}
+
+.btnStart {
+  flex: 1;
+  background: linear-gradient(135deg, var(--accent), #5b21b6);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: .85rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+  letter-spacing: .03em;
+}
+.btnStart:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(124,58,237,.5);
+}
+.btnStart:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .mpScreen  { padding: 1.25rem .75rem 2.5rem; }
+  .mpMapName { font-size: 1.25rem; }
+  .mpActions { flex-direction: column; }
+  .btnStart  { width: 100%; padding: .85rem; }
+}
+
 /* ── Auth legal note ─────────────────────────────────────── */
 .authLegal {
   color: var(--muted);

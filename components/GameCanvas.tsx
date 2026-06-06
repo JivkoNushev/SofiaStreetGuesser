@@ -7,6 +7,7 @@ import EndScreen from './EndScreen';
 import AuthScreen from './AuthScreen';
 import DistrictPicker from './DistrictPicker';
 import NeighbourhoodPicker from './NeighbourhoodPicker';
+import MapPreview from './MapPreview';
 import { CFG } from '@/lib/constants';
 import { MODES } from '@/lib/modes';
 import { shuffle, fmt } from '@/lib/utils';
@@ -41,7 +42,7 @@ export interface AuthUser {
   avatarUrl: string | null;
 }
 
-type Phase = 'loading' | 'auth-select' | 'mode-select' | 'district-picker' | 'neighbourhood-picker' | 'playing' | 'ended';
+type Phase = 'loading' | 'auth-select' | 'mode-select' | 'district-picker' | 'neighbourhood-picker' | 'map-preview' | 'playing' | 'ended';
 
 interface GameState {
   phase:       Phase;
@@ -71,7 +72,8 @@ type Action =
   | { type: 'REVEAL'; name: string }
   | { type: 'ADVANCE' }
   | { type: 'SKIP' }
-  | { type: 'END' };
+  | { type: 'END' }
+  | { type: 'STAGE_PREVIEW'; mode: string; submode: string | null };
 
 function init(): GameState {
   return {
@@ -103,6 +105,9 @@ function reducer(state: GameState, action: Action): GameState {
 
     case 'LOAD_ERR':
       return { ...state, loadingErr: action.err };
+
+    case 'STAGE_PREVIEW':
+      return { ...state, phase: 'map-preview', mode: action.mode, submode: action.submode };
 
     case 'BEGIN_GAME': {
       const status: Record<string, StreetStatus> = {};
@@ -366,6 +371,16 @@ export default function GameCanvas() {
     dispatch({ type: 'SKIP' });
   }, [state.blocked, state.idx, state.names.length]);
 
+  const handleMapPreviewStart = useCallback(async () => {
+    if (state.mode === 'easy' || state.mode === 'normal' || state.mode === 'hard') {
+      startMode(state.mode);
+    } else if (state.mode === 'district') {
+      await startDistrictMode(state.submode!);
+    } else if (state.mode === 'neighbourhood') {
+      await startNeighbourhoodMode(state.submode!);
+    }
+  }, [state.mode, state.submode, startMode, startDistrictMode, startNeighbourhoodMode]);
+
   const handleSignOut = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
     const supabase = createClient();
@@ -455,21 +470,21 @@ export default function GameCanvas() {
           <h1>StreetGuesser</h1>
           <p className="modeSub">How well do you know the streets of Sofia?</p>
           <div className="modeCards">
-            <button className="modeCard cardEasy" onClick={() => startMode('easy')}>
+            <button className="modeCard cardEasy" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'easy', submode: null })}>
               <span className="modeBadge badgeEasy">Easy</span>
               <span className="modeCardIcon">🌱</span>
               <div className="modeCardName">Easy</div>
               <div className="modeCardDesc">Major boulevards only</div>
               <span className="modeCardCount">{Math.min(counts.easy, MODES.easy.max)} streets</span>
             </button>
-            <button className="modeCard cardNormal" onClick={() => startMode('normal')}>
+            <button className="modeCard cardNormal" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'normal', submode: null })}>
               <span className="modeBadge badgeNormal">Normal</span>
               <span className="modeCardIcon">🏙️</span>
               <div className="modeCardName">Normal</div>
               <div className="modeCardDesc">Major & secondary roads</div>
               <span className="modeCardCount">{Math.min(counts.normal, MODES.normal.max)} streets</span>
             </button>
-            <button className="modeCard cardHard" onClick={() => startMode('hard')}>
+            <button className="modeCard cardHard" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'hard', submode: null })}>
               <span className="modeBadge badgeHard">Hard</span>
               <span className="modeCardIcon">🔥</span>
               <div className="modeCardName">Hard</div>
@@ -508,7 +523,7 @@ export default function GameCanvas() {
   if (state.phase === 'district-picker') {
     return (
       <DistrictPicker
-        onSelect={startDistrictMode}
+        onSelect={(name) => dispatch({ type: 'STAGE_PREVIEW', mode: 'district', submode: name })}
         onBack={() => dispatch({ type: 'SET_PHASE', phase: 'mode-select' })}
       />
     );
@@ -517,8 +532,23 @@ export default function GameCanvas() {
   if (state.phase === 'neighbourhood-picker') {
     return (
       <NeighbourhoodPicker
-        onSelect={startNeighbourhoodMode}
+        onSelect={(name) => dispatch({ type: 'STAGE_PREVIEW', mode: 'neighbourhood', submode: name })}
         onBack={() => dispatch({ type: 'SET_PHASE', phase: 'mode-select' })}
+      />
+    );
+  }
+
+  if (state.phase === 'map-preview') {
+    const backPhase: Phase =
+      state.mode === 'district' ? 'district-picker'
+      : state.mode === 'neighbourhood' ? 'neighbourhood-picker'
+      : 'mode-select';
+    return (
+      <MapPreview
+        mode={state.mode}
+        submode={state.submode}
+        onStart={handleMapPreviewStart}
+        onBack={() => dispatch({ type: 'SET_PHASE', phase: backPhase })}
       />
     );
   }
