@@ -25,11 +25,12 @@ export default function Privacy() {
             <p><strong>Vercel</strong> — hosting. Web requests may be logged by Vercel for operational purposes. See the <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>Vercel Privacy Policy</a>.</p>
             <p><strong>OpenStreetMap / Overpass API</strong> — street geometry data originates from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>OpenStreetMap</a> (© OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>ODbL</a>). No personally identifiable information is sent to OpenStreetMap.</p>
             <p><strong>Google OAuth</strong> — if you sign in with Google, we receive your Google profile name and email address. We do not receive your password. See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>Google&apos;s Privacy Policy</a>.</p>
+            <p><strong>Vercel Analytics &amp; Speed Insights</strong> — we collect aggregated, anonymised visitor metrics (page views, country, browser/device type, Core Web Vitals). No cookies are set and no personal data is collected. See the <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>Vercel Privacy Policy</a>.</p>
           </section>
 
           <section>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '.5rem' }}>Cookies</h2>
-            <p>We use a session cookie to keep you signed in across page loads. No tracking or advertising cookies are set by this application.</p>
+            <p>We use a session cookie to keep you signed in across page loads. No tracking or advertising cookies are set. Vercel Analytics does not use cookies.</p>
           </section>
 
           <section>
