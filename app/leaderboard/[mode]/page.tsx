@@ -29,7 +29,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   const supabase = await createClient();
   const query = supabase
     .from('leaderboard')
-    .select('rank, username, correct, total, duration_ms, played_at')
+    .select('rank, username, correct, skipped, total, duration_ms, played_at')
     .eq('mode', mode)
     .order('rank', { ascending: true })
     .limit(50);
@@ -46,7 +46,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
         <Link href="/leaderboard" className="lbBack">← All leaderboards</Link>
         <h1 className="lbTitle">{label}</h1>
         <p className="lbSubtitle">
-          Ranked by most correct answers, then fastest time.
+          Ranked by Score (correct − skips), then fastest time.
           {rows && rows.length > 0 && ` ${rows.length} player${rows.length !== 1 ? 's' : ''} have played this map.`}
         </p>
 
@@ -58,6 +58,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
               <tr>
                 <th>#</th>
                 <th>Player</th>
+                <th>Score</th>
                 <th>Correct</th>
                 <th>Accuracy</th>
                 <th>Time</th>
@@ -67,10 +68,12 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
               {rows.map((row, i) => {
                 const rankClass = i === 0 ? 'lbRank gold' : i === 1 ? 'lbRank silver' : i === 2 ? 'lbRank bronze' : 'lbRank';
                 const accuracy  = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
+                const score = row.correct - (row.skipped ?? 0);
                 return (
                   <tr key={i}>
                     <td><span className={rankClass}>{row.rank}</span></td>
                     <td><span className="lbUsername">{row.username}</span></td>
+                    <td className="accentCol">{score}</td>
                     <td>{row.correct} / {row.total}</td>
                     <td>{accuracy}%</td>
                     <td className="mono">{fmt(row.duration_ms)}</td>

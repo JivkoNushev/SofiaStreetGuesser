@@ -26,6 +26,7 @@ create index scores_map_idx     on public.scores (mode, submode, correct desc, d
 create index scores_user_id_idx on public.scores (user_id);
 
 -- Leaderboard view: personal best per user per map
+-- score = correct - skipped; time is tiebreaker only
 create view public.leaderboard as
 select distinct on (user_id, mode, submode)
   s.id,
@@ -40,13 +41,14 @@ select distinct on (user_id, mode, submode)
   s.total,
   s.duration_ms,
   s.played_at,
+  (s.correct - s.skipped) as score,
   rank() over (
     partition by s.mode, s.submode
-    order by s.correct desc, s.duration_ms asc
+    order by (s.correct - s.skipped) desc, s.duration_ms asc
   ) as rank
 from public.scores s
 join public.profiles p on p.id = s.user_id
-order by s.user_id, s.mode, s.submode, s.correct desc, s.duration_ms asc;
+order by s.user_id, s.mode, s.submode, (s.correct - s.skipped) desc, s.duration_ms asc;
 
 -- Row-Level Security
 alter table public.profiles enable row level security;
