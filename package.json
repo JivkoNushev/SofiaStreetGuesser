@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "npx tsx scripts/prepare-streets.ts && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "check": "tsc --noEmit && next lint",
-    "download-streets": "npx tsx scripts/download-streets.ts"
+    "refresh-streets": "npx tsx scripts/refresh-streets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -24,8 +24,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ws": "^8.21.0"
   }
 }

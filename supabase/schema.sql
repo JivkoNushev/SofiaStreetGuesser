@@ -88,3 +88,19 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Street data table (populated by scripts/refresh-streets.ts, read by API)
+-- submode is '' for main city, district/neighbourhood name otherwise
+create table public.street_data (
+  mode         text        not null,
+  submode      text        not null default '',
+  data         jsonb       not null,
+  street_count integer,
+  updated_at   timestamptz not null default now(),
+  constraint street_data_pkey primary key (mode, submode)
+);
+
+alter table public.street_data enable row level security;
+
+create policy "Street data is publicly readable"
+  on public.street_data for select using (true);

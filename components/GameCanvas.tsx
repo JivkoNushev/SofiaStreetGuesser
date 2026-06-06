@@ -172,6 +172,8 @@ function reducer(state: GameState, action: Action): GameState {
 }
 
 let mainStreetInfo: StreetInfo | null = null;
+const districtCache = new Map<string, StreetInfo>();
+const neighbourhoodCache = new Map<string, StreetInfo>();
 
 interface SavedScoreNotice {
   rank: number | null;
@@ -200,8 +202,7 @@ export default function GameCanvas() {
       if (!mainStreetInfo) {
         dispatch({ type: 'LOAD_MSG', msg: 'Loading street data…' });
         try {
-          let res = await fetch('/data/streets/main.json');
-          if (!res.ok) res = await fetch('/api/streets?mode=main');
+          const res = await fetch('/api/streets?mode=main');
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           mainStreetInfo = (await res.json()).streets;
         } catch (err: unknown) {
@@ -286,14 +287,19 @@ export default function GameCanvas() {
   }, []);
 
   const startDistrictMode = useCallback(async (districtName: string) => {
+    const cached = districtCache.get(districtName);
+    if (cached) {
+      const names = shuffle(Object.keys(cached));
+      dispatch({ type: 'BEGIN_GAME', streetInfo: cached, names, mode: 'district', submode: districtName });
+      return;
+    }
     dispatch({ type: 'SET_PHASE', phase: 'loading' });
     dispatch({ type: 'LOAD_MSG', msg: `Loading streets in ${districtName}…` });
     try {
-      const slug = encodeURIComponent(districtName);
-      let res = await fetch(`/data/streets/district-${slug}.json`);
-      if (!res.ok) res = await fetch(`/api/streets?mode=district&name=${slug}`);
+      const res = await fetch(`/api/streets?mode=district&name=${encodeURIComponent(districtName)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { streets } = await res.json();
+      districtCache.set(districtName, streets);
       const names = shuffle(Object.keys(streets));
       dispatch({ type: 'BEGIN_GAME', streetInfo: streets, names, mode: 'district', submode: districtName });
     } catch {
@@ -303,20 +309,31 @@ export default function GameCanvas() {
   }, []);
 
   const startNeighbourhoodMode = useCallback(async (name: string) => {
+    const cached = neighbourhoodCache.get(name);
+    if (cached) {
+      const names = shuffle(Object.keys(cached));
+      dispatch({ type: 'BEGIN_GAME', streetInfo: cached, names, mode: 'neighbourhood', submode: name });
+      return;
+    }
     dispatch({ type: 'SET_PHASE', phase: 'loading' });
     dispatch({ type: 'LOAD_MSG', msg: `Fetching streets in ${name}…` });
     try {
       const res = await fetch(`/api/streets?mode=neighbourhood&name=${encodeURIComponent(name)}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('No streets found');
+        if (res.status === 503) throw new Error('Not yet available');
         throw new Error(`HTTP ${res.status}`);
       }
       const { streets } = await res.json();
+      neighbourhoodCache.set(name, streets);
       const names = shuffle(Object.keys(streets));
       dispatch({ type: 'BEGIN_GAME', streetInfo: streets, names, mode: 'neighbourhood', submode: name });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error';
-      dispatch({ type: 'LOAD_ERR', err: msg === 'No streets found' ? `No streets found in ${name}` : `Could not load "${name}"` });
+      const errText = msg === 'No streets found' ? `No streets found in ${name}`
+        : msg === 'Not yet available' ? `"${name}" hasn't been loaded yet`
+        : `Could not load "${name}"`;
+      dispatch({ type: 'LOAD_ERR', err: errText });
       setTimeout(() => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' }), 2000);
     }
   }, []);

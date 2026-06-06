@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { StreetInfo } from '@/lib/streetData';
-import { fetchMainFull, fetchDistrictFull, fetchNeighbourhoodFull } from '@/lib/streetFetch';
 import { DISTRICTS } from '@/lib/modes';
+
+const db = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
 
 interface CacheEntry { data: StreetInfo; ts: number }
 const cache = new Map<string, CacheEntry>();
@@ -43,22 +48,42 @@ export async function GET(req: NextRequest) {
 
   const key = `${mode}:${name}`;
   const ttl = TTL[mode] ?? TTL.main;
+  const ttlSeconds = ttl / 1000;
+  const cacheHeader = `public, s-maxage=${ttlSeconds}, max-age=${ttlSeconds}, stale-while-revalidate=60`;
+
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < ttl) {
-    return NextResponse.json({ streets: hit.data, cached: true });
+    return NextResponse.json({ streets: hit.data, cached: true }, {
+      headers: { 'Cache-Control': cacheHeader },
+    });
   }
 
   try {
-    let data: StreetInfo;
-    if (mode === 'district')           data = await fetchDistrictFull(name);
-    else if (mode === 'neighbourhood') data = await fetchNeighbourhoodFull(name);
-    else                               data = await fetchMainFull();
+    const submode = mode === 'main' ? '' : name;
+    const { data: row, error } = await db
+      .from('street_data')
+      .select('data')
+      .eq('mode', mode)
+      .eq('submode', submode)
+      .single();
+
+    if (error?.code === 'PGRST116') {
+      return NextResponse.json(
+        { error: 'Street data not yet available — run npm run refresh-streets' },
+        { status: 503 }
+      );
+    }
+    if (error || !row) throw error ?? new Error('No data');
+
+    const data: StreetInfo = row.data as StreetInfo;
 
     if (mode !== 'main' && Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'No streets found' }, { status: 404 });
     }
     cacheSet(key, { data, ts: Date.now() });
-    return NextResponse.json({ streets: data, cached: false });
+    return NextResponse.json({ streets: data, cached: false }, {
+      headers: { 'Cache-Control': cacheHeader },
+    });
   } catch {
     return NextResponse.json({ error: 'Could not fetch street data' }, { status: 502 });
   }
