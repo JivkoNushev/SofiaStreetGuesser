@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { MODES } from '@/lib/modes';
 
 export const metadata: Metadata = {
-  title: 'Leaderboard — Sofia Street Guesser',
-  description: 'Global leaderboards for Sofia Street Guesser. See who knows Sofia streets the best.',
+  title: 'Leaderboard — StreetGuesser',
+  description: 'Global leaderboards for StreetGuesser · Sofia. See who knows Sofia streets the best.',
 };
 
 const LEADERBOARD_MODES = [

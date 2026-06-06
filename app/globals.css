@@ -1322,3 +1322,36 @@ a { color: inherit; text-decoration: none; }
   .lbTable th { font-size: .6rem; padding: .5rem .65rem; }
   .lbTable td { font-size: .8rem; padding: .55rem .65rem; }
 }
+
+/* ── Auth legal note ─────────────────────────────────────── */
+.authLegal {
+  color: var(--muted);
+  font-size: .68rem;
+  margin-top: .75rem;
+  line-height: 1.5;
+}
+.authLegal a {
+  color: var(--accL);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.authLegal a:hover { color: var(--text); }
+
+/* ── Legal page footer ───────────────────────────────────── */
+.legalFooter {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.25rem;
+  font-size: .75rem;
+  color: var(--muted);
+}
+.legalFooter a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color .18s ease;
+}
+.legalFooter a:hover { color: var(--accL); }

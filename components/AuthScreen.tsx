@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 const GoogleIcon = () => (
@@ -28,7 +29,7 @@ export default function AuthScreen({ onGuest }: Props) {
     <div className="authScreen">
       <div className="authInner">
         <span className="loadingIcon">🗺️</span>
-        <h1>Sofia Street Guesser</h1>
+        <h1>StreetGuesser</h1>
         <p className="authSub">How well do you know the streets of Sofia?</p>
         <div className="authButtons">
           <button className="btnGoogle btnGoogleLg" onClick={handleGoogle}>
@@ -40,6 +41,12 @@ export default function AuthScreen({ onGuest }: Props) {
           </button>
         </div>
         <p className="authNote">Guest scores won&apos;t appear on the leaderboard</p>
+        <p className="authLegal">
+          By signing in you agree to our{' '}
+          <Link href="/terms">Terms of Service</Link>
+          {' '}and{' '}
+          <Link href="/privacy">Privacy Policy</Link>
+        </p>
       </div>
     </div>
   );
