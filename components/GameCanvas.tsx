@@ -88,7 +88,7 @@ function init(): GameState {
     status: {},
     blocked: false,
     revealTarget: null,
-    loadingMsg: 'Fetching street data from OpenStreetMap…',
+    loadingMsg: 'Loading street data…',
     loadingErr: '',
   };
 }
