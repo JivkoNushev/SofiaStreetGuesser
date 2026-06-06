@@ -387,7 +387,7 @@ export default function GameCanvas() {
       <div className="loadingScreen">
         <div className="loadingInner">
           <span className="loadingIcon">🗺️</span>
-          <h1>Sofia Street Guesser</h1>
+          <h1>StreetGuesser</h1>
           <p className="loadingSub">How well do you know the streets of Sofia?</p>
           {state.loadingErr ? (
             <p className="loadingStatus" style={{ color: '#f87171' }}>{state.loadingErr}</p>
@@ -452,7 +452,7 @@ export default function GameCanvas() {
             </div>
           )}
           <span className="modeLogo">🗺️</span>
-          <h1>Sofia Street Guesser</h1>
+          <h1>StreetGuesser</h1>
           <p className="modeSub">How well do you know the streets of Sofia?</p>
           <div className="modeCards">
             <button className="modeCard cardEasy" onClick={() => startMode('easy')}>
@@ -532,7 +532,7 @@ export default function GameCanvas() {
       <aside className="sidebar">
         <div className="sidebarHeader">
           <div className="titleRow">
-            <span className="gameTitle">Sofia Street Guesser</span>
+            <span className="gameTitle">StreetGuesser</span>
             <span className={`modePill ${state.mode}`}>{modeLabel}</span>
           </div>
           {user !== undefined && (

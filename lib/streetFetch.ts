@@ -58,7 +58,7 @@ export async function fetchElementsFromOverpass(query: string): Promise<Overpass
         method:  'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent':   'SofiaStreetGuesser/2.0 (https://sofia-street-guesser.vercel.app)',
+          'User-Agent':   'StreetGuesser/2.0 (https://github.com/JivkoNushev/SofiaStreetGuesser)',
           'Accept':       'application/json',
         },
         body: 'data=' + encodeURIComponent(query),

@@ -15,8 +15,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { submode } = await searchParams;
   const label = submode ?? MODES[mode]?.label ?? mode;
   return {
-    title: `${label} Leaderboard — Sofia Street Guesser`,
-    description: `Top players on the ${label} map in Sofia Street Guesser.`,
+    title: `${label} Leaderboard — StreetGuesser`,
+    description: `Top players on the ${label} map in StreetGuesser · Sofia.`,
   };
 }
 

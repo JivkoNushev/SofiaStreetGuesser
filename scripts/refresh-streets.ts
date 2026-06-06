@@ -61,7 +61,7 @@ async function fetchAllNeighbourhoodNames(): Promise<string[]> {
     `out tags;`;
   const res = await fetch(OVERPASS, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SofiaStreetGuesser/2.0' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'StreetGuesser/2.0' },
     body: 'data=' + encodeURIComponent(query),
   });
   if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);

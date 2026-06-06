@@ -1,4 +1,4 @@
-# Sofia Street Guesser — Codebase Context
+# StreetGuesser — Codebase Context (Sofia edition)
 
 ## What this is
 A Next.js 15 + React 19 + TypeScript geography game where players identify streets on a Leaflet map of Sofia, Bulgaria. No Tailwind — all styles are hand-written in `app/globals.css` and `app/page.module.css`.
