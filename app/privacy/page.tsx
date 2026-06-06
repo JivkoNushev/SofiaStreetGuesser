@@ -22,7 +22,7 @@ export default function Privacy() {
           <section>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '.5rem' }}>Third-party services</h2>
             <p><strong>Supabase</strong> — database and authentication. Your data is stored on Supabase-managed PostgreSQL servers.</p>
-            <p><strong>OpenStreetMap / Overpass API</strong> — street geometry data is fetched from OpenStreetMap on the server. No personally identifiable information is sent to OpenStreetMap.</p>
+            <p><strong>OpenStreetMap</strong> — street geometry data originates from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>OpenStreetMap</a> (© OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>ODbL</a>) and is stored in our database. No personally identifiable information is sent to OpenStreetMap.</p>
             <p><strong>Google OAuth</strong> — if you sign in with Google, we receive your Google profile name and email. We do not receive your password.</p>
             <p><strong>Google AdSense</strong> — we may display advertisements. Google uses cookies to serve relevant ads. See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>Google&apos;s Privacy Policy</a>.</p>
           </section>

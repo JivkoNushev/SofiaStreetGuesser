@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "tsc --noEmit && next lint"
+    "check": "tsc --noEmit && next lint",
+    "refresh-streets": "npx tsx scripts/refresh-streets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -23,8 +24,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ws": "^8.21.0"
   }
 }
