@@ -7,7 +7,7 @@ const CSP = [
   // 'unsafe-inline' required: Leaflet sets inline styles on map elements
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.basemaps.cartocdn.com",
+  "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.googleusercontent.com",
   "connect-src 'self' https://*.supabase.co",
   "frame-ancestors 'none'",
   "object-src 'none'",
