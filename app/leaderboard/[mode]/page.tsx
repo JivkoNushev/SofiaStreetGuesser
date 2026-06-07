@@ -63,35 +63,37 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
         {(!rows || rows.length === 0) ? (
           <p className="lbEmpty">No scores yet — be the first to play this map and submit your score!</p>
         ) : (
-          <table className="lbTable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player</th>
-                <th>Score</th>
-                <th>Correct</th>
-                <th>Accuracy</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => {
-                const rankClass = i === 0 ? 'lbRank gold' : i === 1 ? 'lbRank silver' : i === 2 ? 'lbRank bronze' : 'lbRank';
-                const accuracy  = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
-                const score = row.correct - (row.skipped ?? 0);
-                return (
-                  <tr key={i}>
-                    <td><span className={rankClass}>{row.rank}</span></td>
-                    <td><span className="lbUsername">{row.username}</span></td>
-                    <td className="accentCol">{score}</td>
-                    <td>{row.correct} / {row.total}</td>
-                    <td>{accuracy}%</td>
-                    <td className="mono">{fmt(row.duration_ms)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="lbTableWrap">
+            <table className="lbTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Player</th>
+                  <th>Score</th>
+                  <th>Correct</th>
+                  <th>Accuracy</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => {
+                  const rankClass = i === 0 ? 'lbRank gold' : i === 1 ? 'lbRank silver' : i === 2 ? 'lbRank bronze' : 'lbRank';
+                  const accuracy  = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
+                  const score = row.correct - (row.skipped ?? 0);
+                  return (
+                    <tr key={i}>
+                      <td><span className={rankClass}>{row.rank}</span></td>
+                      <td><span className="lbUsername">{row.username}</span></td>
+                      <td className="accentCol">{score}</td>
+                      <td>{row.correct} / {row.total}</td>
+                      <td>{accuracy}%</td>
+                      <td className="mono">{fmt(row.duration_ms)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <div style={{ marginTop: '2rem', textAlign: 'center' }}>
