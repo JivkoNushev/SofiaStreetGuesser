@@ -134,13 +134,33 @@ export default function OgImage() {
           ))}
         </div>
 
+        {/* CTA button */}
+        <div
+          style={{
+            marginTop: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: '#7c3aed',
+            borderRadius: '100px',
+            padding: '12px 36px',
+            color: '#ffffff',
+            fontSize: '20px',
+            fontWeight: 700,
+            fontFamily: 'Inter',
+            letterSpacing: '0.02em',
+          }}
+        >
+          Играй сега · Play Now →
+        </div>
+
         {/* Free badge */}
         <div
           style={{
             position: 'absolute',
-            bottom: '32px',
+            bottom: '28px',
             right: '40px',
-            fontSize: '15px',
+            fontSize: '14px',
             color: '#4b5563',
             display: 'flex',
             fontFamily: 'Inter',

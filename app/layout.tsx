@@ -20,7 +20,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'StreetGuesser · Sofia — Познаваш ли улиците?',
+    default: 'StreetGuesser · Sofia — Познаваш ли улиците на града?',
     template: '%s — StreetGuesser',
   },
   description:
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     alternateLocale: ['en_US'],
     url: '/',
     siteName: 'StreetGuesser',
-    title: 'StreetGuesser · Sofia — Познаваш ли улиците?',
+    title: 'StreetGuesser · Sofia — Познаваш ли улиците на града?',
     description: 'Познаваш ли улиците на София? | Do you know the streets of Sofia? Free geography game — no registration required.',
     images: [
       {
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'StreetGuesser · Sofia — Познаваш ли улиците?',
+    title: 'StreetGuesser · Sofia — Познаваш ли улиците на града?',
     description: 'Познаваш ли улиците на София? | Do you know the streets of Sofia? Free geography game.',
     images: ['/opengraph-image'],
   },
