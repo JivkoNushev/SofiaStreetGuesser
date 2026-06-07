@@ -14,9 +14,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { mode }    = await params;
   const { submode } = await searchParams;
   const label = submode ?? MODES[mode]?.label ?? mode;
+  const isLocalized = mode === 'district' || mode === 'neighbourhood';
   return {
     title: `${label} Leaderboard — StreetGuesser`,
-    description: `Top players on the ${label} map in StreetGuesser · Sofia.`,
+    description: isLocalized
+      ? `Топ играчи · ${label} | Top players on the ${label} map in StreetGuesser · Sofia.`
+      : `Top players on the ${label} map in StreetGuesser · Sofia.`,
   };
 }
 
