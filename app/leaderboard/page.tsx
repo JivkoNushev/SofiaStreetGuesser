@@ -23,25 +23,28 @@ export default function LeaderboardIndex() {
           Each map has its own leaderboard. Rankings are based on most correct answers, with time as a tiebreaker.
         </p>
 
-        <h2 style={{ color: 'var(--text)', fontSize: '1rem', fontWeight: 600, marginBottom: '.75rem', marginTop: '1.5rem' }}>
-          Standard Modes
-        </h2>
+        <h2 className="lbSectionHeading">Standard Modes</h2>
         <div className="modeGrid">
           {LEADERBOARD_MODES.map(({ key, icon, desc }) => (
             <Link key={key} href={`/leaderboard/${key}`} className="modeGridCard">
-              <h3>{icon} {MODES[key].label}</h3>
+              <span className="modeGridIcon">{icon}</span>
+              <h3>{MODES[key].label}</h3>
               <p>{desc}</p>
             </Link>
           ))}
         </div>
 
-        <h2 style={{ color: 'var(--text)', fontSize: '1rem', fontWeight: 600, marginBottom: '.75rem', marginTop: '2rem' }}>
-          District &amp; Neighbourhood modes
-        </h2>
-        <p className="lbSubtitle">
-          District and neighbourhood leaderboards are available after playing that map.
-          Each area has its own ranking — find the map in-game and your score will appear here.
-        </p>
+        <h2 className="lbSectionHeading" style={{ marginTop: '2rem' }}>District &amp; Neighbourhood Modes</h2>
+        <div className="lbInfoBox">
+          <span className="lbInfoIcon">🗺️</span>
+          <div className="lbInfoText">
+            <h4>Play to unlock</h4>
+            <p>
+              District and neighbourhood leaderboards are generated when you play those maps in-game.
+              Each area has its own ranking — finish a game and your score will appear here.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
