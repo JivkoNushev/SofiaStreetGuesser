@@ -470,10 +470,10 @@ export default function GameCanvas() {
           <div className="modeTopLeft">
             {user !== undefined && (
               user ? (
-                <button className="topBarBtn" onClick={handleSignOut}>
+                <Link href="/account" className="topBarBtn">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                   {user.username ?? 'Account'}
-                </button>
+                </Link>
               ) : (
                 <button className="topBarBtn" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'auth-select' })}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>

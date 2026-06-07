@@ -40,7 +40,7 @@ export default function Privacy() {
 
           <section>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '.5rem' }}>Data deletion</h2>
-            <p>To delete your account and all associated scores, email <a href="mailto:streetguesser.noblore@gmail.com" style={{ color: 'var(--accL)' }}>streetguesser.noblore@gmail.com</a> or open an issue on <a href="https://github.com/JivkoNushev/SofiaStreetGuesser" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>GitHub</a>. Deletion requests are processed within 30 days.</p>
+            <p>You can delete your account and all associated scores at any time from your <Link href="/account" style={{ color: 'var(--accL)' }}>Account page</Link>. Deletion is immediate and permanent — your profile, all scores, and all leaderboard entries are removed instantly. If you are unable to access your account, email <a href="mailto:streetguesser.noblore@gmail.com" style={{ color: 'var(--accL)' }}>streetguesser.noblore@gmail.com</a> and we will process your request within 30 days.</p>
           </section>
         </div>
 
