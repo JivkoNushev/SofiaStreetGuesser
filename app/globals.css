@@ -1588,7 +1588,12 @@ a { color: inherit; text-decoration: none; }
   background: var(--surf);
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: clip;
+}
+
+.mpLbTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mpLbHeader {

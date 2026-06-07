@@ -90,32 +90,34 @@ export default function MapPreview({ mode, submode, onStart, onBack }: Props) {
 
           {!loading && rows !== null && rows.length > 0 && (
             <>
-              <table className="lbTable">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Player</th>
-                    <th>Score</th>
-                    <th>Correct / Total</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => {
-                    const rankClass = i === 0 ? 'lbRank gold' : i === 1 ? 'lbRank silver' : i === 2 ? 'lbRank bronze' : 'lbRank';
-                    const score = row.correct - row.skipped;
-                    return (
-                      <tr key={i}>
-                        <td><span className={rankClass}>{row.rank}</span></td>
-                        <td><span className="lbUsername">{row.username}</span></td>
-                        <td className="accentCol">{score}</td>
-                        <td>{row.correct} / {row.total}</td>
-                        <td className="mono">{fmt(row.duration_ms)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="mpLbTableWrap">
+                <table className="lbTable">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Player</th>
+                      <th>Score</th>
+                      <th>Correct / Total</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => {
+                      const rankClass = i === 0 ? 'lbRank gold' : i === 1 ? 'lbRank silver' : i === 2 ? 'lbRank bronze' : 'lbRank';
+                      const score = row.correct - row.skipped;
+                      return (
+                        <tr key={i}>
+                          <td><span className={rankClass}>{row.rank}</span></td>
+                          <td><span className="lbUsername">{row.username}</span></td>
+                          <td className="accentCol">{score}</td>
+                          <td>{row.correct} / {row.total}</td>
+                          <td className="mono">{fmt(row.duration_ms)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <Link href={lbHref} className="mpLbMore">View full leaderboard →</Link>
             </>
           )}
