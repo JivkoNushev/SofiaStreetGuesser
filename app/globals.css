@@ -1644,8 +1644,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .acctAvatar {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   border: 2px solid var(--border);
   flex-shrink: 0;

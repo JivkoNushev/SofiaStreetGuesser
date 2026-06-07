@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -24,6 +26,21 @@ export async function GET() {
       .select('correct, total, duration_ms, mode, submode')
       .eq('user_id', user.id),
   ]);
+
+  // Keep avatar in sync with Google — the trigger only fires on insert.
+  // Supabase stores the Google picture in different places depending on
+  // when the account was created; check all known locations.
+  const googleIdentity = user.identities?.find(i => i.provider === 'google');
+  const authAvatar =
+    user.user_metadata?.avatar_url ||
+    user.user_metadata?.picture ||
+    googleIdentity?.identity_data?.avatar_url ||
+    googleIdentity?.identity_data?.picture ||
+    null;
+  if (profile && authAvatar && profile.avatar_url !== authAvatar) {
+    await supabase.from('profiles').update({ avatar_url: authAvatar }).eq('id', user.id);
+    profile.avatar_url = authAvatar;
+  }
 
   const allScores = allScoresData ?? [];
   const totalCorrect = allScores.reduce((s, r) => s + r.correct, 0);
