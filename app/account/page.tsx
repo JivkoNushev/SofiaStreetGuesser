@@ -173,6 +173,7 @@ export default function AccountPage() {
             {scores.length === 0 ? (
               <p className="lbEmpty">No scores yet — play a game and submit your score to appear here!</p>
             ) : (
+              <div className="acctTableWrap">
               <table className="lbTable">
                 <thead>
                   <tr>
@@ -210,6 +211,7 @@ export default function AccountPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </>
         )}
