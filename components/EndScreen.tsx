@@ -20,10 +20,11 @@ interface Props {
 }
 
 export default function EndScreen({ mode, submode, correct, wrong, skipped, total, durationMs, user, onPlayAgain, onQuit }: Props) {
-  const [saving, setSaving] = useState(() => user != null && user !== undefined);
-  const [rank,   setRank]   = useState<number | null>(null);
-  const [saved,  setSaved]  = useState(false);
-  const [saveErr, setSaveErr] = useState(false);
+  const [saving,        setSaving]        = useState(() => user != null && user !== undefined);
+  const [rank,          setRank]          = useState<number | null>(null);
+  const [saved,         setSaved]         = useState(false);
+  const [scoreImproved, setScoreImproved] = useState(false);
+  const [saveErr,       setSaveErr]       = useState(false);
   const didSave = useRef(false);
   const accuracy = Math.round((correct / total) * 100);
 
@@ -38,7 +39,7 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
       body:    JSON.stringify({ mode, submode, correct, wrong, skipped, total, duration_ms: durationMs }),
     })
       .then(res => res.ok ? res.json() : Promise.reject())
-      .then(data => { setRank(data.rank); setSaved(true); })
+      .then(data => { setRank(data.rank); setSaved(true); setScoreImproved(data.saved ?? true); })
       .catch(() => setSaveErr(true))
       .finally(() => setSaving(false));
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -96,7 +97,9 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
               : saved
                 ? <div className="rankBadge">
                     {rank !== null
-                      ? `You ranked #${rank} on the ${submode ?? mode} leaderboard!`
+                      ? scoreImproved
+                        ? `You ranked #${rank} on the ${submode ?? mode} leaderboard!`
+                        : `Your best score is #${rank} on the ${submode ?? mode} leaderboard.`
                       : 'Score saved to the leaderboard!'}
                   </div>
                 : saveErr

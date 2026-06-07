@@ -24,31 +24,91 @@ create table public.scores (
 
 create index scores_map_idx     on public.scores (mode, submode, correct desc, duration_ms asc);
 create index scores_user_id_idx on public.scores (user_id);
+create unique index scores_user_map_unique
+  on public.scores (user_id, mode, coalesce(submode, ''));
 
 -- Leaderboard view: personal best per user per map
 -- score = correct - skipped; time is tiebreaker only
+-- CTE ensures rank() is computed on deduplicated rows, not all plays
 create view public.leaderboard as
-select distinct on (user_id, mode, submode)
-  s.id,
-  s.user_id,
-  p.username,
-  p.avatar_url,
-  s.mode,
-  s.submode,
-  s.correct,
-  s.wrong,
-  s.skipped,
-  s.total,
-  s.duration_ms,
-  s.played_at,
-  (s.correct - s.skipped) as score,
+with best_per_user as (
+  select distinct on (user_id, mode, submode)
+    s.id,
+    s.user_id,
+    p.username,
+    p.avatar_url,
+    s.mode,
+    s.submode,
+    s.correct,
+    s.wrong,
+    s.skipped,
+    s.total,
+    s.duration_ms,
+    s.played_at,
+    (s.correct - s.skipped) as score
+  from public.scores s
+  join public.profiles p on p.id = s.user_id
+  order by s.user_id, s.mode, s.submode, (s.correct - s.skipped) desc, s.duration_ms asc
+)
+select *,
   rank() over (
-    partition by s.mode, s.submode
-    order by (s.correct - s.skipped) desc, s.duration_ms asc
+    partition by mode, submode
+    order by score desc, duration_ms asc
   ) as rank
-from public.scores s
-join public.profiles p on p.id = s.user_id
-order by s.user_id, s.mode, s.submode, (s.correct - s.skipped) desc, s.duration_ms asc;
+from best_per_user;
+
+-- Map play counter (one row per mode+submode, incremented on every submission)
+-- submode is '' for main modes (easy/normal/hard), district/neighbourhood name otherwise
+create table public.map_plays (
+  mode    text not null,
+  submode text not null default '',
+  plays   bigint not null default 1,
+  primary key (mode, submode)
+);
+
+-- Atomically upsert a score — only replaces existing if the new result is a personal best.
+-- Returns true if the score was saved (new or improved), false if the existing best is better.
+create or replace function public.save_score(
+  p_user_id     uuid,
+  p_mode        text,
+  p_submode     text,
+  p_correct     smallint,
+  p_wrong       smallint,
+  p_skipped     smallint,
+  p_total       smallint,
+  p_duration_ms integer
+) returns boolean language plpgsql security definer set search_path = public as $$
+declare
+  v_rows integer;
+begin
+  if auth.uid() is null or auth.uid() != p_user_id then
+    raise exception 'Unauthorized';
+  end if;
+
+  insert into public.scores (user_id, mode, submode, correct, wrong, skipped, total, duration_ms)
+  values (p_user_id, p_mode, p_submode, p_correct, p_wrong, p_skipped, p_total, p_duration_ms)
+  on conflict (user_id, mode, coalesce(submode, '')) do update
+    set correct     = excluded.correct,
+        wrong       = excluded.wrong,
+        skipped     = excluded.skipped,
+        total       = excluded.total,
+        duration_ms = excluded.duration_ms,
+        played_at   = now()
+    where (excluded.correct - excluded.skipped) > (scores.correct - scores.skipped)
+       or ((excluded.correct - excluded.skipped) = (scores.correct - scores.skipped)
+           and excluded.duration_ms < scores.duration_ms);
+
+  get diagnostics v_rows = row_count;
+  return v_rows > 0;
+end;
+$$;
+
+create or replace function public.increment_map_plays(p_mode text, p_submode text)
+returns void language sql security definer set search_path = public as $$
+  insert into public.map_plays (mode, submode, plays)
+  values (p_mode, coalesce(p_submode, ''), 1)
+  on conflict (mode, submode) do update set plays = map_plays.plays + 1;
+$$;
 
 -- Row-Level Security
 alter table public.profiles enable row level security;
@@ -101,6 +161,11 @@ create table public.street_data (
   updated_at   timestamptz not null default now(),
   constraint street_data_pkey primary key (mode, submode)
 );
+
+alter table public.map_plays enable row level security;
+
+create policy "Map plays are publicly readable"
+  on public.map_plays for select using (true);
 
 alter table public.street_data enable row level security;
 

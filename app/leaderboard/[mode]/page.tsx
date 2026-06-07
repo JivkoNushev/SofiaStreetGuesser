@@ -40,7 +40,14 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   if (submode) query.eq('submode', submode);
   else query.is('submode', null);
 
-  const { data: rows } = await query;
+  const playsQuery = supabase
+    .from('map_plays')
+    .select('plays')
+    .eq('mode', mode)
+    .eq('submode', submode ?? '');
+
+  const [{ data: rows }, { data: playsData }] = await Promise.all([query, playsQuery.maybeSingle()]);
+  const totalPlays = (playsData as { plays: number } | null)?.plays ?? 0;
   const label = submode ?? MODES[mode]?.label ?? mode;
 
   return (
@@ -50,7 +57,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
         <h1 className="lbTitle">{label}</h1>
         <p className="lbSubtitle">
           Ranked by Score (correct − skips), then fastest time.
-          {rows && rows.length > 0 && ` ${rows.length} player${rows.length !== 1 ? 's' : ''} have played this map.`}
+          {totalPlays > 0 && ` Played ${totalPlays} time${totalPlays !== 1 ? 's' : ''}.`}
         </p>
 
         {(!rows || rows.length === 0) ? (
