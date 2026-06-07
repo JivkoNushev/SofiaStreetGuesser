@@ -8,6 +8,7 @@ import AuthScreen from './AuthScreen';
 import DistrictPicker from './DistrictPicker';
 import NeighbourhoodPicker from './NeighbourhoodPicker';
 import MapPreview from './MapPreview';
+import ScrollRow from './ScrollRow';
 import { CFG } from '@/lib/constants';
 import { MODES } from '@/lib/modes';
 import { shuffle, fmt } from '@/lib/utils';
@@ -186,11 +187,18 @@ interface SavedScoreNotice {
   submode: string | null;
 }
 
+interface PopularMode {
+  mode: string;
+  submode: string | null;
+  play_count: number;
+}
+
 export default function GameCanvas() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
   // undefined = auth not yet checked; null = guest; AuthUser = signed in
   const [savedNotice, setSavedNotice] = useState<SavedScoreNotice | null>(null);
+  const [popularModes, setPopularModes] = useState<PopularMode[]>([]);
   const [toast, setToast] = useState<{ msg: string; kind: 'c' | 'w'; key: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -260,6 +268,14 @@ export default function GameCanvas() {
         dispatch({ type: 'SET_PHASE', phase: 'auth-select' });
       }
     })();
+  }, []);
+
+  // Fetch popular modes once on mount
+  useEffect(() => {
+    fetch('/api/popular-modes')
+      .then(r => r.json())
+      .then(({ popular }) => { if (Array.isArray(popular)) setPopularModes(popular); })
+      .catch(() => {});
   }, []);
 
   // Timer
@@ -438,26 +454,49 @@ export default function GameCanvas() {
         }
       }
     }
+
+    const modeDescs: Record<string, string> = {
+      easy: 'Major boulevards only',
+      normal: 'Major & secondary roads',
+      hard: 'All named streets',
+      district: 'All streets in a district',
+      neighbourhood: 'All streets in a neighbourhood',
+    };
+
     return (
       <div className="modeScreen">
-        {/* User widget — top right */}
-        <div className="authNav">
-          {user !== undefined && (
-            user ? (
-              <>
-                <span className="authNavUsername">{user.username ?? 'Player'}</span>
-                <button className="authNavBtn" onClick={handleSignOut}>Sign out</button>
-              </>
-            ) : (
-              <button className="authNavBtn" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'auth-select' })}>
-                Sign in
-              </button>
-            )
-          )}
-          <Link href="/leaderboard" className="leaderboardLink">Leaderboard</Link>
+        {/* Header bar */}
+        <div className="modeTopBar">
+          <div className="modeTopLeft">
+            {user !== undefined && (
+              user ? (
+                <button className="topBarBtn" onClick={handleSignOut}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                  {user.username ?? 'Account'}
+                </button>
+              ) : (
+                <button className="topBarBtn" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'auth-select' })}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                  Sign in
+                </button>
+              )
+            )}
+            <Link href="/leaderboard" className="topBarBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21H5a2 2 0 0 1-2-2v-1a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v1a2 2 0 0 1-2 2h-3"/><path d="M12 3v10"/><path d="M8 7l4-4 4 4"/><rect x="8" y="17" width="8" height="4" rx="1"/></svg>
+              Leaderboard
+            </Link>
+          </div>
+          <h1 className="modeTopTitle">StreetGuesser</h1>
+          <div className="modeTopRight">
+            <div className="cityPill">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              Sofia
+            </div>
+          </div>
         </div>
 
-        <div className="modeInner">
+        {/* Scrollable content */}
+        <div className="modeContent">
           {savedNotice && (
             <div className="scoreSavedBanner">
               {savedNotice.rank !== null
@@ -466,56 +505,81 @@ export default function GameCanvas() {
               <button className="scoreSavedClose" onClick={() => setSavedNotice(null)}>×</button>
             </div>
           )}
-          <span className="modeLogo">🗺️</span>
-          <h1>StreetGuesser</h1>
-          <p className="modeSub">How well do you know the streets of Sofia?</p>
-          <div className="modeCards">
+
+          {/* Popular modes */}
+          {popularModes.length > 0 && (
+            <>
+              <div className="modeSectionSep"><span>POPULAR MODES</span></div>
+              <ScrollRow>
+                {popularModes.map((pm, i) => {
+                  const isBasic = pm.mode === 'easy' || pm.mode === 'normal' || pm.mode === 'hard';
+                  const cap = pm.mode.charAt(0).toUpperCase() + pm.mode.slice(1);
+                  const cardName = isBasic ? cap : (pm.submode ?? cap);
+                  const cardClass = `modeCard card${cap}`;
+                  const badgeClass = `modeBadge badge${cap}`;
+                  const onClick = isBasic
+                    ? () => dispatch({ type: 'STAGE_PREVIEW', mode: pm.mode, submode: null })
+                    : pm.mode === 'district'
+                    ? () => dispatch({ type: 'SET_PHASE', phase: 'district-picker' })
+                    : () => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' });
+                  return (
+                    <button key={i} className={cardClass} onClick={onClick}>
+                      <span className={badgeClass}>{pm.mode}</span>
+                      <div className="modeCardName">{cardName}</div>
+                      <div className="modeCardDesc">{modeDescs[pm.mode]}</div>
+                      <span className="modeCardCount">{pm.play_count} plays</span>
+                    </button>
+                  );
+                })}
+              </ScrollRow>
+            </>
+          )}
+
+          {/* Basic modes */}
+          <div className="modeSectionSep"><span>BASIC MODES</span></div>
+          <ScrollRow>
             <button className="modeCard cardEasy" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'easy', submode: null })}>
               <span className="modeBadge badgeEasy">Easy</span>
-              <span className="modeCardIcon">🌱</span>
               <div className="modeCardName">Easy</div>
               <div className="modeCardDesc">Major boulevards only</div>
               <span className="modeCardCount">{Math.min(counts.easy, MODES.easy.max)} streets</span>
             </button>
             <button className="modeCard cardNormal" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'normal', submode: null })}>
               <span className="modeBadge badgeNormal">Normal</span>
-              <span className="modeCardIcon">🏙️</span>
               <div className="modeCardName">Normal</div>
               <div className="modeCardDesc">Major & secondary roads</div>
               <span className="modeCardCount">{Math.min(counts.normal, MODES.normal.max)} streets</span>
             </button>
             <button className="modeCard cardHard" onClick={() => dispatch({ type: 'STAGE_PREVIEW', mode: 'hard', submode: null })}>
               <span className="modeBadge badgeHard">Hard</span>
-              <span className="modeCardIcon">🔥</span>
               <div className="modeCardName">Hard</div>
               <div className="modeCardDesc">All named streets</div>
               <span className="modeCardCount">{Math.min(counts.hard, MODES.hard.max)} streets</span>
             </button>
-            <button
-              className="modeCard cardDistrict"
-              onClick={() => dispatch({ type: 'SET_PHASE', phase: 'district-picker' })}
-            >
+          </ScrollRow>
+
+          {/* Other modes */}
+          <div className="modeSectionSep"><span>OTHER MODES</span></div>
+          <ScrollRow>
+            <button className="modeCard cardDistrict" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'district-picker' })}>
               <span className="modeBadge badgeDistrict">District</span>
-              <span className="modeCardIcon">🏛️</span>
               <div className="modeCardName">District</div>
               <div className="modeCardDesc">All streets in one district</div>
               <span className="modeCardCount">24 districts</span>
             </button>
-            <button
-              className="modeCard cardNeighbourhood"
-              onClick={() => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' })}
-            >
+            <button className="modeCard cardNeighbourhood" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' })}>
               <span className="modeBadge badgeNeighbourhood">Neighbourhood</span>
-              <span className="modeCardIcon">🏘️</span>
               <div className="modeCardName">Neighbourhood</div>
               <div className="modeCardDesc">All streets in one neighbourhood</div>
               <span className="modeCardCount">100+ neighbourhoods</span>
             </button>
-          </div>
-          <div className="modePrivacy">
-            <Link href="/privacy">Privacy Policy</Link>
-          </div>
+          </ScrollRow>
         </div>
+
+        {/* Footer */}
+        <footer className="modeFooter">
+          <Link href="/privacy">Privacy Policy</Link>
+        </footer>
       </div>
     );
   }
