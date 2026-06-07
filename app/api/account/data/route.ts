@@ -19,8 +19,7 @@ export async function GET() {
       .from('leaderboard')
       .select('rank, mode, submode, correct, skipped, total, duration_ms, score')
       .eq('user_id', user.id)
-      .order('mode', { ascending: true })
-      .order('submode', { ascending: true }),
+      .order('rank', { ascending: true }),
     supabase
       .from('scores')
       .select('correct, total, duration_ms, mode, submode')
