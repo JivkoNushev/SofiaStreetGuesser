@@ -50,12 +50,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { error: playsErr } = await supabase.rpc('increment_map_plays', {
-    p_mode:    mode,
-    p_submode: submode ?? null,
-  });
-  if (playsErr) console.error('increment_map_plays failed:', playsErr);
-
   const { data: scoreSaved, error: saveErr } = await supabase.rpc('save_score', {
     p_user_id:     user.id,
     p_mode:        mode,

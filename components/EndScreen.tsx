@@ -25,8 +25,20 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
   const [saved,         setSaved]         = useState(false);
   const [scoreImproved, setScoreImproved] = useState(false);
   const [saveErr,       setSaveErr]       = useState(false);
-  const didSave = useRef(false);
+  const didSave  = useRef(false);
+  const didTrack = useRef(false);
   const accuracy = Math.round((correct / total) * 100);
+
+  // Track play for all users (guests included)
+  useEffect(() => {
+    if (didTrack.current) return;
+    didTrack.current = true;
+    fetch('/api/track-play', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ mode, submode }),
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save when logged in
   useEffect(() => {
