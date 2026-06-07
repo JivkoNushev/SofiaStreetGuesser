@@ -50,32 +50,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { error: insertErr } = await supabase.from('scores').insert({
-    user_id:    user.id,
-    mode,
-    submode:    submode ?? null,
-    correct,
-    wrong:      wrong ?? 0,
-    skipped:    skipped ?? 0,
-    total,
-    duration_ms,
+  const { error: playsErr } = await supabase.rpc('increment_map_plays', {
+    p_mode:    mode,
+    p_submode: submode ?? null,
+  });
+  if (playsErr) console.error('increment_map_plays failed:', playsErr);
+
+  const { data: scoreSaved, error: saveErr } = await supabase.rpc('save_score', {
+    p_user_id:     user.id,
+    p_mode:        mode,
+    p_submode:     submode ?? null,
+    p_correct:     correct as number,
+    p_wrong:       (wrong ?? 0) as number,
+    p_skipped:     (skipped ?? 0) as number,
+    p_total:       total as number,
+    p_duration_ms: duration_ms as number,
   });
 
-  if (insertErr) {
-    console.error('Score insert error:', insertErr);
+  if (saveErr) {
+    console.error('save_score error:', saveErr);
     return NextResponse.json({ error: 'Failed to save score' }, { status: 500 });
   }
 
-  const { data: rankData } = await supabase
+  const rankQuery = supabase
     .from('leaderboard')
     .select('rank')
     .eq('user_id', user.id)
-    .eq('mode', mode)
-    .eq('submode', submode ?? null)
-    .single();
+    .eq('mode', mode);
+  if (submode != null) rankQuery.eq('submode', submode as string);
+  else rankQuery.is('submode', null);
+  const { data: rankData } = await rankQuery.maybeSingle();
 
   return NextResponse.json(
-    { rank: rankData?.rank ?? null },
+    { rank: rankData?.rank ?? null, saved: scoreSaved as boolean },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
