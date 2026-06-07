@@ -1449,12 +1449,24 @@ a { color: inherit; text-decoration: none; }
   .btnSaveScore, .btnLoginSave { padding: .75rem 2rem; }
 
   /* Mode selection mobile */
+  /* Header: title on its own row, buttons beneath it */
+  .modeTopBar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: .55rem .75rem;
+    gap: .35rem .45rem;
+  }
+  .modeTopTitle { width: 100%; order: -1; font-size: 1.1rem; }
+  .modeTopLeft  { order: 0; gap: .35rem; }
+  .modeTopRight { order: 1; }
+  .topBarBtn, .cityPill { font-size: .7rem; padding: .3rem .65rem; }
+  .modeContent { padding: 0 .9rem 1rem; }
+
+  /* Mode cards: centered scroll — centers when cards fit, scrolls from start when they overflow */
+  .scrollRow { justify-content: safe center; }
   .modeCard { flex: 0 0 200px; }
   .modeCardDesc { min-height: auto; }
-  .modeTopBar { padding: .55rem .85rem; gap: .5rem; }
-  .modeTopTitle { font-size: 1.1rem; }
-  .topBarBtn, .cityPill { font-size: .7rem; padding: .3rem .65rem; }
-  .modeContent { padding: 0 1.25rem 1rem; }
 
   /* End screen: 2×2 stats */
   .endStats { grid-template-columns: repeat(2, 1fr); }
