@@ -21,7 +21,7 @@ export default function Terms() {
 
           <section>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '.5rem' }}>2. User accounts</h2>
-            <p>Accounts are created via Google OAuth managed by Supabase. By creating an account you agree to keep your credentials secure. We reserve the right to remove accounts or scores that violate these terms.</p>
+            <p>Accounts are created via Google OAuth managed by Supabase. By creating an account you agree to keep your credentials secure. We reserve the right to remove accounts or scores that violate these terms. You may delete your account at any time from your <Link href="/account" style={{ color: 'var(--accL)' }}>Account page</Link> — deletion is immediate and permanently removes your profile, scores, and all leaderboard entries.</p>
           </section>
 
           <section>
@@ -65,7 +65,7 @@ export default function Terms() {
 
           <section>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '.5rem' }}>9. Contact</h2>
-            <p>For questions, abuse reports, commercial licensing, or account deletion requests, open an issue on <a href="https://github.com/JivkoNushev/SofiaStreetGuesser" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>GitHub</a> or email <a href="mailto:streetguesser.noblore@gmail.com" style={{ color: 'var(--accL)' }}>streetguesser.noblore@gmail.com</a>.</p>
+            <p>For questions, abuse reports, or commercial licensing, open an issue on <a href="https://github.com/JivkoNushev/SofiaStreetGuesser" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accL)' }}>GitHub</a> or email <a href="mailto:streetguesser.noblore@gmail.com" style={{ color: 'var(--accL)' }}>streetguesser.noblore@gmail.com</a>. To delete your account, use the <Link href="/account" style={{ color: 'var(--accL)' }}>Account page</Link>.</p>
           </section>
         </div>
 
