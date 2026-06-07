@@ -1134,7 +1134,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Leaderboard ─────────────────────────────────────────── */
 .lbPage {
-  min-height: 100vh;
+  height: 100vh;
   overflow-y: auto;
   background: radial-gradient(ellipse at 50% 0%, #1a0838 0%, var(--bg) 60%);
   padding: 3rem 1rem;
@@ -1466,7 +1466,7 @@ a { color: inherit; text-decoration: none; }
   .nbGrid, .districtGrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 
   /* Leaderboard */
-  .lbPage { padding: 1.5rem .75rem; }
+  .lbPage { height: 100dvh; padding: 1.5rem .75rem; }
   .modeGrid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); }
   .lbTable th { font-size: .6rem; padding: .5rem .65rem; }
   .lbTable td { font-size: .8rem; padding: .55rem .65rem; }
