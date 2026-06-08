@@ -1,6 +1,5 @@
 import type { HighwayType } from './constants';
-
-export const BOULEVARD_RE = /^(бул[.\s]|булевард|boulevard|bul[.\s])/i;
+import { getLanguage } from './languages';
 
 export interface ModeConfig {
   label:       string;
@@ -13,7 +12,7 @@ export const MODES: Record<string, ModeConfig> = {
   easy: {
     label:      'Easy',
     highways:   new Set(['trunk', 'primary', 'secondary', 'tertiary', 'residential']),
-    nameFilter: (name: string) => BOULEVARD_RE.test(name),
+    nameFilter: (name: string) => getLanguage('bg').boulevardMatcher(name),
     max:        25,
   },
   normal: {
@@ -28,10 +27,4 @@ export const MODES: Record<string, ModeConfig> = {
   },
 };
 
-export const DISTRICTS = [
-  'Банкя', 'Витоша', 'Връбница', 'Възраждане', 'Изгрев',
-  'Илинден', 'Искър', 'Красна поляна', 'Красно село', 'Кремиковци',
-  'Лозенец', 'Люлин', 'Младост', 'Надежда', 'Нови Искър',
-  'Оборище', 'Овча купел', 'Панчарево', 'Подуяне', 'Сердика',
-  'Слатина', 'Средец', 'Студентски', 'Триадица',
-];
+export const VALID_MODES = new Set([...Object.keys(MODES), 'district', 'neighbourhood']);

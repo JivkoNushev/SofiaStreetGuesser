@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { DISTRICTS } from '@/lib/modes';
+import { getCity } from '@/lib/cities';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
   ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -27,7 +27,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const neighbourhoods = await getNeighbourhoods();
 
-  const districtLeaderboards: MetadataRoute.Sitemap = DISTRICTS.map(d => ({
+  const districts = getCity('sofia').districts ?? [];
+  const districtLeaderboards: MetadataRoute.Sitemap = districts.map((d: string) => ({
     url: `${SITE_URL}/leaderboard/district?submode=${encodeURIComponent(d)}`,
     lastModified: now,
     changeFrequency: 'weekly',

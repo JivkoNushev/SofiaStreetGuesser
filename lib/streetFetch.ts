@@ -1,33 +1,39 @@
 import { buildStreetInfo, StreetInfo, OverpassElement } from './streetData';
+import { getLanguage } from './languages';
+import type { CityConfig } from './cities';
 import { OVERPASS } from './constants';
 
 const HW_FILTER = '"highway"~"^(trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"';
-const WIDE_BBOX = '42.45,23.05,42.92,23.70';
 
-function mainQuery() {
-  return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](${WIDE_BBOX}););\nout geom;`;
+function bboxStr(city: CityConfig): string {
+  return city.bbox.join(',');
 }
 
-function mainInsideQuery() {
+function mainQuery(city: CityConfig) {
+  return `[out:json][timeout:60];\n(way[${HW_FILTER}]["name"](${bboxStr(city)}););\nout geom;`;
+}
+
+function mainInsideQuery(city: CityConfig) {
+  const safe = city.osmAreaName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
     `[out:json][timeout:60];\n` +
-    `area["name"="София"][boundary=administrative]->.a;\n` +
-    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `area["name"="${safe}"][boundary=administrative]->.a;\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(${bboxStr(city)}););\n` +
     `out geom;`
   );
 }
 
-function districtNamesQuery(name: string) {
+function districtNamesQuery(name: string, city: CityConfig) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
     `[out:json][timeout:60];\n` +
     `area["name"="${safe}"][boundary=administrative]->.a;\n` +
-    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(${bboxStr(city)}););\n` +
     `out geom;`
   );
 }
 
-function neighbourhoodNamesQuery(name: string) {
+function neighbourhoodNamesQuery(name: string, city: CityConfig) {
   const safe = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return (
     `[out:json][timeout:60];\n` +
@@ -35,15 +41,15 @@ function neighbourhoodNamesQuery(name: string) {
     `  area["name"="${safe}"]["place"~"^(neighbourhood|suburb|quarter)$"];\n` +
     `  area["name"="${safe}"][boundary=administrative];\n` +
     `)->.a;\n` +
-    `(way[${HW_FILTER}]["name"](area.a)(${WIDE_BBOX}););\n` +
+    `(way[${HW_FILTER}]["name"](area.a)(${bboxStr(city)}););\n` +
     `out geom;`
   );
 }
 
-function fullGeomQuery(names: string[]) {
+function fullGeomQuery(names: string[], city: CityConfig) {
   const parts = names.map(n => {
     const safe = n.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    return `way[${HW_FILTER}]["name"="${safe}"](${WIDE_BBOX});`;
+    return `way[${HW_FILTER}]["name"="${safe}"](${bboxStr(city)});`;
   });
   return `[out:json][timeout:120];\n(\n${parts.join('\n')}\n);\nout geom;`;
 }
@@ -123,30 +129,30 @@ export function filterConnectedToInside(
   return result;
 }
 
-async function fetchAreaFull(areaQuery: string): Promise<StreetInfo> {
+async function fetchAreaFull(areaQuery: string, city: CityConfig): Promise<StreetInfo> {
   const inside = await fetchElementsFromOverpass(areaQuery);
   if (inside.length === 0) return {};
   const names = [...new Set(inside.map(el => el.tags?.name).filter(Boolean))] as string[];
-  const all = await fetchElementsFromOverpass(fullGeomQuery(names));
+  const all = await fetchElementsFromOverpass(fullGeomQuery(names, city));
   const insideIds = new Set(inside.map(el => el.id).filter((id): id is number => id !== undefined));
-  return buildStreetInfo(filterConnectedToInside(all, insideIds));
+  return buildStreetInfo(filterConnectedToInside(all, insideIds), getLanguage(city.language));
 }
 
-export async function fetchMainFull(): Promise<StreetInfo> {
+export async function fetchMainFull(city: CityConfig): Promise<StreetInfo> {
   const [inside, all] = await Promise.all([
-    fetchElementsFromOverpass(mainInsideQuery()),
-    fetchElementsFromOverpass(mainQuery()),
+    fetchElementsFromOverpass(mainInsideQuery(city)),
+    fetchElementsFromOverpass(mainQuery(city)),
   ]);
   const insideIds = new Set(
     inside.map(el => el.id).filter((id): id is number => id !== undefined)
   );
-  return buildStreetInfo(filterConnectedToInside(all, insideIds));
+  return buildStreetInfo(filterConnectedToInside(all, insideIds), getLanguage(city.language));
 }
 
-export async function fetchDistrictFull(name: string): Promise<StreetInfo> {
-  return fetchAreaFull(districtNamesQuery(name));
+export async function fetchDistrictFull(name: string, city: CityConfig): Promise<StreetInfo> {
+  return fetchAreaFull(districtNamesQuery(name, city), city);
 }
 
-export async function fetchNeighbourhoodFull(name: string): Promise<StreetInfo> {
-  return fetchAreaFull(neighbourhoodNamesQuery(name));
+export async function fetchNeighbourhoodFull(name: string, city: CityConfig): Promise<StreetInfo> {
+  return fetchAreaFull(neighbourhoodNamesQuery(name, city), city);
 }

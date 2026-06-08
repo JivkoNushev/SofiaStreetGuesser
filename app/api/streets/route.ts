@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { StreetInfo } from '@/lib/streetData';
-import { DISTRICTS } from '@/lib/modes';
 
 const db = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,8 +34,8 @@ export async function GET(req: NextRequest) {
   }
 
   if (mode === 'district') {
-    if (!name || !DISTRICTS.includes(name)) {
-      return NextResponse.json({ error: 'Invalid district' }, { status: 400 });
+    if (!name || name.length > 100 || /[\x00-\x1f]/.test(name)) {
+      return NextResponse.json({ error: 'Invalid district name' }, { status: 400 });
     }
   }
 

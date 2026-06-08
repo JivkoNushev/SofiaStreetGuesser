@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { CFG, ST, TILE_URL, TILE_ATTRIBUTION } from '@/lib/constants';
+import { ST, TILE_URL, TILE_ATTRIBUTION } from '@/lib/constants';
 import type { StreetInfo } from '@/lib/streetData';
 
 export type StreetStatus = 'pending' | 'correct' | 'wrong';
@@ -30,7 +30,8 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
 
   // initialize map once
   useEffect(() => {
-    const map = L.map('ssg-map', { center: CFG.center, zoom: CFG.zoom });
+    // No hardcoded center/zoom — fitBounds after polylines load positions the map.
+    const map = L.map('ssg-map');
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
@@ -82,6 +83,18 @@ export default function GameMapInner({ streetInfo, status, onClickStreet, reveal
       });
       pl.on('click', (e) => { L.DomEvent.stopPropagation(e); clickRef.current(name); });
       layersRef.current[name] = pl;
+    }
+
+    // Fit to the loaded street geometry — works for any city, no hardcoded coordinates.
+    const allLayers = Object.values(layersRef.current);
+    if (allLayers.length > 0) {
+      try {
+        const bounds = L.featureGroup(allLayers).getBounds();
+        if (bounds.isValid()) {
+          const pad = window.innerWidth < 1000 ? [20, 20] : [40, 40];
+          map.fitBounds(bounds, { padding: pad as [number, number] });
+        }
+      } catch {}
     }
   }, [streetInfo]);
 

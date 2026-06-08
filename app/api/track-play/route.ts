@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
-
-const VALID_MODES = new Set(['easy', 'normal', 'hard', 'district', 'neighbourhood']);
+import { VALID_MODES } from '@/lib/modes';
 
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({}, { status: 200 });
