@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { StreetInfo } from '@/lib/streetData';
+import { CITIES, DEFAULT_CITY } from '@/lib/cities';
 
 const db = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,24 +29,23 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const mode = searchParams.get('mode') || 'main';
   const name = searchParams.get('name') || '';
+  const city = searchParams.get('city') || DEFAULT_CITY;
 
   if (!['main', 'district', 'neighbourhood'].includes(mode)) {
     return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
   }
 
-  if (mode === 'district') {
+  if (!(city in CITIES)) {
+    return NextResponse.json({ error: 'Unknown city' }, { status: 400 });
+  }
+
+  if (mode === 'district' || mode === 'neighbourhood') {
     if (!name || name.length > 100 || /[\x00-\x1f]/.test(name)) {
-      return NextResponse.json({ error: 'Invalid district name' }, { status: 400 });
+      return NextResponse.json({ error: `Invalid ${mode} name` }, { status: 400 });
     }
   }
 
-  if (mode === 'neighbourhood') {
-    if (!name || name.length > 100 || /[\x00-\x1f]/.test(name)) {
-      return NextResponse.json({ error: 'Invalid neighbourhood name' }, { status: 400 });
-    }
-  }
-
-  const key = `${mode}:${name}`;
+  const key = `${city}:${mode}:${name}`;
   const ttl = TTL[mode] ?? TTL.main;
   const ttlSeconds = ttl / 1000;
   const cacheHeader = `public, s-maxage=${ttlSeconds}, max-age=${ttlSeconds}, stale-while-revalidate=60`;
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     const { data: row, error } = await db
       .from('street_data')
       .select('data')
+      .eq('city', city)
       .eq('mode', mode)
       .eq('submode', submode)
       .single();

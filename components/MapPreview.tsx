@@ -8,6 +8,7 @@ import { MODES } from '@/lib/modes';
 import { fmt } from '@/lib/utils';
 
 interface Props {
+  city:    string;
   mode:    string;
   submode: string | null;
   onStart: () => Promise<void>;
@@ -23,7 +24,7 @@ interface LBRow {
   duration_ms: number;
 }
 
-export default function MapPreview({ mode, submode, onStart, onBack }: Props) {
+export default function MapPreview({ city, mode, submode, onStart, onBack }: Props) {
   const [rows, setRows]       = useState<LBRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -48,6 +49,7 @@ export default function MapPreview({ mode, submode, onStart, onBack }: Props) {
     const query = supabase
       .from('leaderboard')
       .select('rank, username, correct, skipped, total, duration_ms')
+      .eq('city', city)
       .eq('mode', mode)
       .order('rank', { ascending: true })
       .limit(10);
@@ -59,7 +61,7 @@ export default function MapPreview({ mode, submode, onStart, onBack }: Props) {
       setRows((data as LBRow[]) ?? []);
       setLoading(false);
     });
-  }, [mode, submode]);
+  }, [city, mode, submode]);
 
   async function handleStart() {
     setStarting(true);

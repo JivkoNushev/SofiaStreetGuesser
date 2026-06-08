@@ -6,6 +6,7 @@ import { fmt } from '@/lib/utils';
 import type { AuthUser } from './GameCanvas';
 
 interface Props {
+  city:       string;
   mode:       string;
   submode:    string | null;
   correct:    number;
@@ -19,7 +20,7 @@ interface Props {
   onQuit:      () => void;
 }
 
-export default function EndScreen({ mode, submode, correct, wrong, skipped, total, durationMs, user, onPlayAgain, onQuit }: Props) {
+export default function EndScreen({ city, mode, submode, correct, wrong, skipped, total, durationMs, user, onPlayAgain, onQuit }: Props) {
   const [saving,        setSaving]        = useState(() => user != null && user !== undefined);
   const [rank,          setRank]          = useState<number | null>(null);
   const [saved,         setSaved]         = useState(false);
@@ -48,7 +49,7 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
     fetch('/api/scores', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ mode, submode, correct, wrong, skipped, total, duration_ms: durationMs }),
+      body:    JSON.stringify({ city, mode, submode, correct, wrong, skipped, total, duration_ms: durationMs }),
     })
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => { setRank(data.rank); setSaved(true); setScoreImproved(data.saved ?? true); })
@@ -58,7 +59,7 @@ export default function EndScreen({ mode, submode, correct, wrong, skipped, tota
 
   async function handleLoginToSave() {
     localStorage.setItem('ssg_pending_score', JSON.stringify({
-      mode, submode, correct, wrong, skipped, total, duration_ms: durationMs,
+      city, mode, submode, correct, wrong, skipped, total, duration_ms: durationMs,
     }));
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({

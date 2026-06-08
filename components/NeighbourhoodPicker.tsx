@@ -4,23 +4,25 @@ import { Fragment, useState, useEffect } from 'react';
 import { normalise } from '@/lib/utils';
 
 interface Props {
+  city:     string;
   onSelect: (name: string) => void;
   onBack:   () => void;
 }
 
-export default function NeighbourhoodPicker({ onSelect, onBack }: Props) {
+export default function NeighbourhoodPicker({ city, onSelect, onBack }: Props) {
   const [list,    setList]    = useState<string[] | null>(null);
   const [filter,  setFilter]  = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/neighbourhoods')
+    setList(null);
+    fetch(`/api/neighbourhoods?city=${encodeURIComponent(city)}`)
       .then(r => r.json())
       .then(data => setList(data.neighbourhoods ?? []))
       .catch(() => setList([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [city]);
 
   const q = normalise(filter);
   const matches = list ? (q ? list.filter(n => normalise(n).includes(q)) : list) : [];
