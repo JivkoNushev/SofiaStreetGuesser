@@ -1,11 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
+import { CITIES, DEFAULT_CITY } from '@/lib/cities';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!isSupabaseConfigured()) {
+    return NextResponse.json({ popular: [] });
+  }
+
+  const city = req.nextUrl.searchParams.get('city') || DEFAULT_CITY;
+  if (!(city in CITIES)) {
     return NextResponse.json({ popular: [] });
   }
 
@@ -14,6 +20,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('map_plays')
       .select('mode, submode, plays')
+      .eq('city', city)
       .order('plays', { ascending: false })
       .limit(5);
 

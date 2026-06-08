@@ -3,11 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { MODES } from '@/lib/modes';
+import { CITIES, DEFAULT_CITY } from '@/lib/cities';
 import { fmt } from '@/lib/utils';
 
 interface Props {
   params: Promise<{ mode: string }>;
-  searchParams: Promise<{ submode?: string }>;
+  searchParams: Promise<{ submode?: string; city?: string }>;
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -24,8 +25,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 }
 
 export default async function LeaderboardPage({ params, searchParams }: Props) {
-  const { mode }    = await params;
-  const { submode } = await searchParams;
+  const { mode }           = await params;
+  const { submode, city: rawCity } = await searchParams;
+  const city = (rawCity && rawCity in CITIES) ? rawCity : DEFAULT_CITY;
 
   if (!MODES[mode] && mode !== 'district' && mode !== 'neighbourhood') notFound();
 
@@ -33,6 +35,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   const query = supabase
     .from('leaderboard')
     .select('rank, username, correct, skipped, total, duration_ms, played_at')
+    .eq('city', city)
     .eq('mode', mode)
     .order('rank', { ascending: true })
     .limit(50);
@@ -43,6 +46,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   const playsQuery = supabase
     .from('map_plays')
     .select('plays')
+    .eq('city', city)
     .eq('mode', mode)
     .eq('submode', submode ?? '');
 

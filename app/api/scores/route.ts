@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { VALID_MODES } from '@/lib/modes';
+import { CITIES, DEFAULT_CITY } from '@/lib/cities';
 const MAX_TOTAL   = 200;
 const MAX_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
 
@@ -22,8 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { mode, submode, correct, wrong, skipped, total, duration_ms } =
+  const { city: rawCity, mode, submode, correct, wrong, skipped, total, duration_ms } =
     body as Record<string, unknown>;
+
+  const city = (typeof rawCity === 'string' && rawCity in CITIES) ? rawCity : DEFAULT_CITY;
 
   if (!VALID_MODES.has(mode as string)) {
     return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest) {
 
   const { data: scoreSaved, error: saveErr } = await supabase.rpc('save_score', {
     p_user_id:     user.id,
+    p_city:        city,
     p_mode:        mode,
     p_submode:     submode ?? null,
     p_correct:     correct as number,
@@ -69,6 +73,7 @@ export async function POST(req: NextRequest) {
     .from('leaderboard')
     .select('rank')
     .eq('user_id', user.id)
+    .eq('city', city)
     .eq('mode', mode);
   if (submode != null) rankQuery.eq('submode', submode as string);
   else rankQuery.is('submode', null);

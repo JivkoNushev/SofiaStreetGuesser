@@ -1,18 +1,18 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { getCity } from '@/lib/cities';
 import { normalise } from '@/lib/utils';
 
 interface Props {
-  onSelect: (name: string) => void;
-  onBack:   () => void;
+  districts: string[];
+  onSelect:  (name: string) => void;
+  onBack:    () => void;
 }
 
-export default function DistrictPicker({ onSelect, onBack }: Props) {
+export default function DistrictPicker({ districts, onSelect, onBack }: Props) {
   const [filter, setFilter] = useState('');
 
-  const sorted = [...(getCity('sofia').districts ?? [])].sort((a, b) => a.localeCompare(b, 'bg'));
+  const sorted = [...districts].sort((a, b) => a.localeCompare(b, 'bg'));
   const q = normalise(filter);
   const matches = q ? sorted.filter(d => normalise(d).includes(q)) : sorted;
 

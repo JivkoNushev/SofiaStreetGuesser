@@ -9,16 +9,17 @@ import DistrictPicker from './DistrictPicker';
 import NeighbourhoodPicker from './NeighbourhoodPicker';
 import MapPreview from './MapPreview';
 import ScrollRow from './ScrollRow';
+import CitySwitcher from './CitySwitcher';
 import { MAX_ATTEMPTS } from '@/lib/constants';
 import { MODES, VALID_MODES } from '@/lib/modes';
+import { CITIES, DEFAULT_CITY, getCity } from '@/lib/cities';
 import { shuffle, fmt } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import type { StreetInfo } from '@/lib/streetData';
 
-
 function isValidPendingScore(v: unknown): v is {
-  mode: string; submode: string | null;
+  city: string; mode: string; submode: string | null;
   correct: number; wrong: number; skipped: number; total: number; duration_ms: number;
 } {
   if (!v || typeof v !== 'object') return false;
@@ -46,6 +47,7 @@ type Phase = 'loading' | 'auth-select' | 'mode-select' | 'district-picker' | 'ne
 
 interface GameState {
   phase:       Phase;
+  city:        string;
   mode:        string;
   submode:     string | null;
   streetInfo:  StreetInfo;
@@ -64,8 +66,9 @@ interface GameState {
 
 type Action =
   | { type: 'SET_PHASE'; phase: Phase }
-  | { type: 'LOAD_MSG'; msg: string }
-  | { type: 'LOAD_ERR'; err: string }
+  | { type: 'SET_CITY';  city: string }
+  | { type: 'LOAD_MSG';  msg: string }
+  | { type: 'LOAD_ERR';  err: string }
   | { type: 'BEGIN_GAME'; streetInfo: StreetInfo; names: string[]; mode: string; submode: string | null }
   | { type: 'CORRECT'; name: string }
   | { type: 'WRONG'; name: string; newAttempts: number }
@@ -78,6 +81,7 @@ type Action =
 function init(): GameState {
   return {
     phase: 'loading',
+    city: DEFAULT_CITY,
     mode: 'easy',
     submode: null,
     streetInfo: {},
@@ -99,6 +103,10 @@ function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'SET_PHASE':
       return { ...state, phase: action.phase };
+
+    case 'SET_CITY':
+      // Reset to loading for the new city; preserve user-facing auth state elsewhere.
+      return { ...init(), city: action.city };
 
     case 'LOAD_MSG':
       return { ...state, loadingMsg: action.msg, loadingErr: '' };
@@ -176,9 +184,11 @@ function reducer(state: GameState, action: Action): GameState {
   }
 }
 
-let mainStreetInfo: StreetInfo | null = null;
-const districtCache = new Map<string, StreetInfo>();
-const neighbourhoodCache = new Map<string, StreetInfo>();
+// Module-level caches survive re-renders but not page reloads.
+// All three are keyed by city so switching cities shows correct data.
+const mainStreetInfoCache = new Map<string, StreetInfo>();       // key: cityId
+const districtCache       = new Map<string, StreetInfo>();       // key: `${cityId}:${districtName}`
+const neighbourhoodCache  = new Map<string, StreetInfo>();       // key: `${cityId}:${name}`
 
 interface SavedScoreNotice {
   rank: number | null;
@@ -202,28 +212,32 @@ export default function GameCanvas() {
   const [elapsed, setElapsed] = useState(0);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const t0Ref     = useRef<number>(0);
+  // Guards the pending-score replay so city switches don't retrigger it.
+  const pendingScoreCheckedRef = useRef(false);
 
   const showToast = useCallback((msg: string, kind: 'c' | 'w') => {
     setToast({ msg, kind, key: Date.now() });
   }, []);
 
-  // Load main street data then check auth
+  // Load street data for the active city then check auth.
+  // Runs on mount and whenever city changes (SET_CITY resets phase to 'loading').
   useEffect(() => {
+    if (state.phase !== 'loading') return;
+    const cityId = state.city;
+
     (async () => {
-      // Load street data if not cached
-      if (!mainStreetInfo) {
+      if (!mainStreetInfoCache.has(cityId)) {
         dispatch({ type: 'LOAD_MSG', msg: 'Loading street data…' });
         try {
-          const res = await fetch('/api/streets?mode=main');
+          const res = await fetch(`/api/streets?mode=main&city=${encodeURIComponent(cityId)}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          mainStreetInfo = (await res.json()).streets;
+          mainStreetInfoCache.set(cityId, (await res.json()).streets);
         } catch (err: unknown) {
           dispatch({ type: 'LOAD_ERR', err: `Error: ${err instanceof Error ? err.message : 'Network error'}` });
           return;
         }
       }
 
-      // Check auth state
       if (!isSupabaseConfigured()) {
         dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
         return;
@@ -242,24 +256,31 @@ export default function GameCanvas() {
           avatarUrl: profile?.avatar_url ?? null,
         });
 
-        // Save any score that was pending before the OAuth redirect
-        const pendingRaw = localStorage.getItem('ssg_pending_score');
-        localStorage.removeItem('ssg_pending_score');
-        if (pendingRaw) {
-          try {
-            const pending: unknown = JSON.parse(pendingRaw);
-            if (isValidPendingScore(pending)) {
-              const res = await fetch('/api/scores', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(pending),
-              });
-              if (res.ok) {
-                const { rank } = await res.json();
-                setSavedNotice({ rank, mode: pending.mode, submode: pending.submode ?? null });
+        // Replay any score that was pending before the OAuth redirect (first load only).
+        if (!pendingScoreCheckedRef.current) {
+          pendingScoreCheckedRef.current = true;
+          const pendingRaw = localStorage.getItem('ssg_pending_score');
+          localStorage.removeItem('ssg_pending_score');
+          if (pendingRaw) {
+            try {
+              const pending: unknown = JSON.parse(pendingRaw);
+              if (isValidPendingScore(pending)) {
+                const rawPendingCity = (pending as Record<string, unknown>).city;
+                const pendingCity = (typeof rawPendingCity === 'string' && rawPendingCity in CITIES)
+                  ? rawPendingCity
+                  : DEFAULT_CITY;
+                const res = await fetch('/api/scores', {
+                  method:  'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body:    JSON.stringify({ ...pending, city: pendingCity }),
+                });
+                if (res.ok) {
+                  const { rank } = await res.json();
+                  setSavedNotice({ rank, mode: pending.mode, submode: pending.submode ?? null });
+                }
               }
-            }
-          } catch { /* ignore malformed localStorage data */ }
+            } catch { /* ignore malformed localStorage data */ }
+          }
         }
 
         dispatch({ type: 'SET_PHASE', phase: 'mode-select' });
@@ -267,15 +288,17 @@ export default function GameCanvas() {
         dispatch({ type: 'SET_PHASE', phase: 'auth-select' });
       }
     })();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase, state.city]);
 
-  // Fetch popular modes once on mount
+  // Fetch popular modes once on mount (and when city changes via SET_CITY).
   useEffect(() => {
-    fetch('/api/popular-modes')
+    fetch(`/api/popular-modes?city=${encodeURIComponent(state.city)}`)
       .then(r => r.json())
       .then(({ popular }) => { if (Array.isArray(popular)) setPopularModes(popular); })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.city]);
 
   // Timer
   useEffect(() => {
@@ -288,26 +311,41 @@ export default function GameCanvas() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [state.phase, state.names]);
 
-  // advance check — when idx reaches names.length, end the game
+  // Advance check — when idx reaches names.length, end the game.
   useEffect(() => {
     if (state.phase === 'playing' && state.idx >= state.names.length && state.names.length > 0) {
       dispatch({ type: 'END' });
     }
   }, [state.idx, state.names.length, state.phase]);
 
+  // Sync active city to localStorage and URL so it survives page reload.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('ssg_city', state.city);
+    const url = new URL(window.location.href);
+    if (state.city === DEFAULT_CITY) {
+      url.searchParams.delete('city');
+    } else {
+      url.searchParams.set('city', state.city);
+    }
+    window.history.replaceState(null, '', url.toString());
+  }, [state.city]);
+
   const startMode = useCallback((mode: string) => {
-    if (!mainStreetInfo) return;
+    const info = mainStreetInfoCache.get(state.city);
+    if (!info) return;
     const cfg  = MODES[mode];
-    const all  = Object.entries(mainStreetInfo)
-      .filter(([n, info]) => cfg.highways.has(info.bestHighway as never) && (!cfg.nameFilter || cfg.nameFilter(n)));
+    const all  = Object.entries(info)
+      .filter(([n, si]) => cfg.highways.has(si.bestHighway as never) && (!cfg.nameFilter || cfg.nameFilter(n)));
     const names = shuffle(all.map(([n]) => n)).slice(0, cfg.max);
     const selectedStreetInfo: StreetInfo = {};
-    for (const name of names) selectedStreetInfo[name] = mainStreetInfo[name];
+    for (const name of names) selectedStreetInfo[name] = info[name];
     dispatch({ type: 'BEGIN_GAME', streetInfo: selectedStreetInfo, names, mode, submode: null });
-  }, []);
+  }, [state.city]);
 
   const startDistrictMode = useCallback(async (districtName: string) => {
-    const cached = districtCache.get(districtName);
+    const cacheKey = `${state.city}:${districtName}`;
+    const cached = districtCache.get(cacheKey);
     if (cached) {
       const names = shuffle(Object.keys(cached));
       dispatch({ type: 'BEGIN_GAME', streetInfo: cached, names, mode: 'district', submode: districtName });
@@ -316,20 +354,21 @@ export default function GameCanvas() {
     dispatch({ type: 'SET_PHASE', phase: 'loading' });
     dispatch({ type: 'LOAD_MSG', msg: `Loading streets in ${districtName}…` });
     try {
-      const res = await fetch(`/api/streets?mode=district&name=${encodeURIComponent(districtName)}`);
+      const res = await fetch(`/api/streets?mode=district&name=${encodeURIComponent(districtName)}&city=${encodeURIComponent(state.city)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { streets } = await res.json();
-      districtCache.set(districtName, streets);
+      districtCache.set(cacheKey, streets);
       const names = shuffle(Object.keys(streets));
       dispatch({ type: 'BEGIN_GAME', streetInfo: streets, names, mode: 'district', submode: districtName });
     } catch {
       dispatch({ type: 'LOAD_ERR', err: `Could not load "${districtName}" — please try again` });
       setTimeout(() => dispatch({ type: 'SET_PHASE', phase: 'district-picker' }), 2000);
     }
-  }, []);
+  }, [state.city]);
 
   const startNeighbourhoodMode = useCallback(async (name: string) => {
-    const cached = neighbourhoodCache.get(name);
+    const cacheKey = `${state.city}:${name}`;
+    const cached = neighbourhoodCache.get(cacheKey);
     if (cached) {
       const names = shuffle(Object.keys(cached));
       dispatch({ type: 'BEGIN_GAME', streetInfo: cached, names, mode: 'neighbourhood', submode: name });
@@ -338,14 +377,14 @@ export default function GameCanvas() {
     dispatch({ type: 'SET_PHASE', phase: 'loading' });
     dispatch({ type: 'LOAD_MSG', msg: `Fetching streets in ${name}…` });
     try {
-      const res = await fetch(`/api/streets?mode=neighbourhood&name=${encodeURIComponent(name)}`);
+      const res = await fetch(`/api/streets?mode=neighbourhood&name=${encodeURIComponent(name)}&city=${encodeURIComponent(state.city)}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('No streets found');
         if (res.status === 503) throw new Error('Not yet available');
         throw new Error(`HTTP ${res.status}`);
       }
       const { streets } = await res.json();
-      neighbourhoodCache.set(name, streets);
+      neighbourhoodCache.set(cacheKey, streets);
       const names = shuffle(Object.keys(streets));
       dispatch({ type: 'BEGIN_GAME', streetInfo: streets, names, mode: 'neighbourhood', submode: name });
     } catch (err: unknown) {
@@ -356,7 +395,7 @@ export default function GameCanvas() {
       dispatch({ type: 'LOAD_ERR', err: errText });
       setTimeout(() => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' }), 2000);
     }
-  }, []);
+  }, [state.city]);
 
   const handleClickStreet = useCallback((name: string) => {
     if (state.blocked || state.idx >= state.names.length) return;
@@ -404,6 +443,14 @@ export default function GameCanvas() {
     dispatch({ type: 'SET_PHASE', phase: 'auth-select' });
   }, []);
 
+  const handleSwitchCity = useCallback((city: string) => {
+    if (city === state.city || !(city in CITIES)) return;
+    dispatch({ type: 'SET_CITY', city });
+    setUser(undefined);
+    setSavedNotice(null);
+    setPopularModes([]);
+  }, [state.city]);
+
   const modeLabel = state.mode === 'district' || state.mode === 'neighbourhood'
     ? (state.submode ?? state.mode)
     : (MODES[state.mode]?.label ?? state.mode);
@@ -412,13 +459,15 @@ export default function GameCanvas() {
     ? Math.round((state.correct / state.names.length) * 100)
     : 0;
 
+  const activeCity = getCity(state.city);
+
   if (state.phase === 'loading') {
     return (
       <div className="loadingScreen">
         <div className="loadingInner">
           <span className="loadingIcon">🗺️</span>
           <h1>StreetGuesser</h1>
-          <p className="loadingSub">How well do you know the streets of Sofia?</p>
+          <p className="loadingSub">How well do you know the streets of {activeCity.displayName}?</p>
           {state.loadingErr ? (
             <p className="loadingStatus" style={{ color: '#f87171' }}>{state.loadingErr}</p>
           ) : (
@@ -444,7 +493,7 @@ export default function GameCanvas() {
   }
 
   if (state.phase === 'mode-select') {
-    const info = mainStreetInfo ?? {};
+    const info = mainStreetInfoCache.get(state.city) ?? {};
     const counts = { easy: 0, normal: 0, hard: 0 };
     for (const [n, { bestHighway }] of Object.entries(info)) {
       for (const [mode, cfg] of Object.entries(MODES)) {
@@ -461,6 +510,8 @@ export default function GameCanvas() {
       district: 'All streets in a district',
       neighbourhood: 'All streets in a neighbourhood',
     };
+
+    const districts = activeCity.districts ?? [];
 
     return (
       <div className="modeScreen">
@@ -487,10 +538,7 @@ export default function GameCanvas() {
           </div>
           <h1 className="modeTopTitle">StreetGuesser</h1>
           <div className="modeTopRight">
-            <div className="cityPill">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              Sofia
-            </div>
+            <CitySwitcher city={state.city} onSelect={handleSwitchCity} />
           </div>
         </div>
 
@@ -564,7 +612,7 @@ export default function GameCanvas() {
               <span className="modeBadge badgeDistrict">District</span>
               <div className="modeCardName">District</div>
               <div className="modeCardDesc">All streets in one district</div>
-              <span className="modeCardCount">24 districts</span>
+              <span className="modeCardCount">{districts.length} districts</span>
             </button>
             <button className="modeCard cardNeighbourhood" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'neighbourhood-picker' })}>
               <span className="modeBadge badgeNeighbourhood">Neighbourhood</span>
@@ -586,6 +634,7 @@ export default function GameCanvas() {
   if (state.phase === 'district-picker') {
     return (
       <DistrictPicker
+        districts={activeCity.districts ?? []}
         onSelect={(name) => dispatch({ type: 'STAGE_PREVIEW', mode: 'district', submode: name })}
         onBack={() => dispatch({ type: 'SET_PHASE', phase: 'mode-select' })}
       />
@@ -595,6 +644,7 @@ export default function GameCanvas() {
   if (state.phase === 'neighbourhood-picker') {
     return (
       <NeighbourhoodPicker
+        city={state.city}
         onSelect={(name) => dispatch({ type: 'STAGE_PREVIEW', mode: 'neighbourhood', submode: name })}
         onBack={() => dispatch({ type: 'SET_PHASE', phase: 'mode-select' })}
       />
@@ -608,6 +658,7 @@ export default function GameCanvas() {
       : 'mode-select';
     return (
       <MapPreview
+        city={state.city}
         mode={state.mode}
         submode={state.submode}
         onStart={handleMapPreviewStart}
@@ -729,6 +780,7 @@ export default function GameCanvas() {
       {/* End screen overlay */}
       {state.phase === 'ended' && (
         <EndScreen
+          city={state.city}
           mode={state.mode}
           submode={state.submode}
           correct={state.correct}

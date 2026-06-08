@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import { VALID_MODES } from '@/lib/modes';
+import { CITIES, DEFAULT_CITY } from '@/lib/cities';
 
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({}, { status: 200 });
@@ -10,7 +11,8 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }); }
 
-  const { mode, submode } = (body ?? {}) as Record<string, unknown>;
+  const { city: rawCity, mode, submode } = (body ?? {}) as Record<string, unknown>;
+  const city = (typeof rawCity === 'string' && rawCity in CITIES) ? rawCity : DEFAULT_CITY;
   if (!VALID_MODES.has(mode as string)) {
     return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
   }
@@ -22,6 +24,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
   const { error } = await supabase.rpc('increment_map_plays', {
+    p_city:    city,
     p_mode:    mode,
     p_submode: submode ?? null,
   });
