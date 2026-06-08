@@ -1,6 +1,4 @@
-export const CFG = {
-  maxAttempts: 3,
-};
+export const MAX_ATTEMPTS = 3;
 
 export const HIERARCHY = [
   'trunk', 'primary', 'secondary', 'tertiary',
