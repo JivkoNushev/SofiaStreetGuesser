@@ -13,6 +13,7 @@ import CitySwitcher from './CitySwitcher';
 import { MAX_ATTEMPTS } from '@/lib/constants';
 import { MODES, VALID_MODES } from '@/lib/modes';
 import { CITIES, DEFAULT_CITY, getCity } from '@/lib/cities';
+import { getLanguage } from '@/lib/languages';
 import { shuffle, fmt } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
@@ -335,8 +336,13 @@ export default function GameCanvas() {
     const info = mainStreetInfoCache.get(state.city);
     if (!info) return;
     const cfg  = MODES[mode];
+    const lang = getLanguage(getCity(state.city).language);
     const all  = Object.entries(info)
-      .filter(([n, si]) => cfg.highways.has(si.bestHighway as never) && (!cfg.nameFilter || cfg.nameFilter(n)));
+      .filter(([n, si]) => {
+        if (!cfg.highways.has(si.bestHighway as never)) return false;
+        if (mode === 'easy') return lang.boulevardMatcher(n);
+        return true;
+      });
     const names = shuffle(all.map(([n]) => n)).slice(0, cfg.max);
     const selectedStreetInfo: StreetInfo = {};
     for (const name of names) selectedStreetInfo[name] = info[name];
@@ -494,12 +500,13 @@ export default function GameCanvas() {
 
   if (state.phase === 'mode-select') {
     const info = mainStreetInfoCache.get(state.city) ?? {};
+    const lang = getLanguage(activeCity.language);
     const counts = { easy: 0, normal: 0, hard: 0 };
     for (const [n, { bestHighway }] of Object.entries(info)) {
       for (const [mode, cfg] of Object.entries(MODES)) {
-        if (cfg.highways.has(bestHighway as never) && (!cfg.nameFilter || cfg.nameFilter(n))) {
-          counts[mode as keyof typeof counts]++;
-        }
+        const passesHighway = cfg.highways.has(bestHighway as never);
+        const passesName = mode !== 'easy' || lang.boulevardMatcher(n);
+        if (passesHighway && passesName) counts[mode as keyof typeof counts]++;
       }
     }
 

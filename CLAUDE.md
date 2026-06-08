@@ -27,31 +27,45 @@ The entire game runs through `GameCanvas.tsx` which manages a `useReducer`-based
 ```
 app/
   layout.tsx          — RootLayout, Inter font (latin+cyrillic)
-  globals.css         — ALL shared styles (~1276 lines, no breakpoints currently)
+  globals.css         — ALL shared styles, no utility classes
   page.tsx            — Renders <GameCanvas /> only
   leaderboard/
     page.tsx          — Mode grid linking to each leaderboard
-    [mode]/page.tsx   — Table of top 50 scores (rank, player, correct, accuracy, time)
+    [mode]/page.tsx   — Table of top 50 scores; accepts ?city= param
   api/
-    streets/route.ts  — Fetches Overpass data; modes: main|district|neighbourhood
-    scores/route.ts   — POST saves a score; reads Supabase leaderboard view
-    neighbourhoods/   — Lists Sofia neighbourhood names
+    streets/route.ts  — Serves street data from Supabase; modes: main|district|neighbourhood; ?city=
+    scores/route.ts   — POST saves a score; reads Supabase leaderboard view; city-aware
+    neighbourhoods/   — Lists neighbourhood names for a city; ?city=
+    popular-modes/    — Top-5 played maps for a city; ?city=
+    track-play/       — Increments map_plays; city-aware
 
 components/
-  GameCanvas.tsx      — Main game orchestrator; all game logic + reducer
+  GameCanvas.tsx      — Main game orchestrator; reducer with city in state; all game logic
   GameMap.tsx         — Dynamic import wrapper (SSR: false) for GameMapInner
-  GameMapInner.tsx    — Leaflet map init, polylines, click/hover handlers
+  GameMapInner.tsx    — Leaflet map init, polylines, fitBounds to data, click/hover handlers
+  CitySwitcher.tsx    — City pill (1 city) / dropdown (≥2 cities); reads CITIES registry
   AuthScreen.tsx      — Google OAuth + "Play as Guest" screen
-  DistrictPicker.tsx  — 24-district grid
-  NeighbourhoodPicker.tsx — Searchable neighbourhood grid
-  EndScreen.tsx       — Results modal with save-score flow
+  DistrictPicker.tsx  — District grid; receives districts[] prop from GameCanvas
+  NeighbourhoodPicker.tsx — Searchable neighbourhood grid; city-aware fetch
+  EndScreen.tsx       — Results modal with save-score flow; city-aware
 
 lib/
-  constants.ts        — CFG (center, zoom, maxAttempts), street styles, OVERPASS URL
-  modes.ts            — MODES config (easy/normal/hard), DISTRICTS list
-  streetData.ts       — Parses Overpass JSON → StreetInfo {name: {bestHighway, coords[][]}}
+  cities.ts           — CityConfig interface + CITIES registry + getCity(); add cities here
+  languages.ts        — LanguageProfile interface + LANGUAGES registry (bg, en) + getLanguage()
+  constants.ts        — MAX_ATTEMPTS, HIERARCHY, ST (street styles), OVERPASS, TILE_URL
+  modes.ts            — MODES config (easy/normal/hard) + VALID_MODES; no city/language deps
+  streetData.ts       — buildStreetInfo(elements, lang) → StreetInfo; language-injected
+  streetFetch.ts      — Overpass query builders and fetchers; takes CityConfig; ingest-only
   utils.ts            — shuffle(), fmt(ms), normalise(str)
   supabase/           — client.ts, server.ts, isConfigured.ts
+
+scripts/
+  refresh-streets.ts  — Ingest pipeline: Overpass → Supabase street_data; reads city registry
+
+supabase/
+  schema.sql          — Canonical schema (fresh DB). city column on street_data/scores/map_plays
+  migrations/
+    0001_add_city.sql — Migration for existing DBs: adds city column, rebuilds PKs/view/RPCs
 ```
 
 ## Game layout (playing phase)
@@ -553,7 +567,60 @@ The `city` column (not submode-encoding), file-based config (not a DB table), th
 
 ---
 
-# Phase 1 — Implementation Log
+# Implementation Status
+
+> **Phase A (= original Phases 1+2+3) — DONE.** City registry, language profiles, all consumers migrated, dead code removed, VALID_MODES de-duplicated.
+> **Phase B (= original Phases 4+5+6) — DONE.** DB migration, all 6 caches city-keyed, city threaded through all APIs + client, CitySwitcher added.
+> **Phase C** — next: add a second city (e.g. Plovdiv). See "How a new city is added" in §5 above.
+
+## Phase A — City registry + refactor (DONE)
+
+> Merged original Phases 1, 2, 3. Behaviour-neutral, single-city, zero DB changes.
+
+### What was completed
+- **NEW `lib/languages.ts`** — `LanguageProfile` interface + `LANGUAGES` registry (`bg`, `en`) + `getLanguage(id)`.
+- **NEW `lib/cities.ts`** — `CityConfig` interface + `CITIES` registry (just `sofia`) + `DEFAULT_CITY` + `getCity(id?)`. Includes `districts` (24 Sofia districts) as an ingest-only field.
+- **`lib/constants.ts`** — removed `center`/`zoom` from `CFG`; removed dead `MAIN_QUERY`; renamed `CFG.maxAttempts` to `MAX_ATTEMPTS`.
+- **`lib/modes.ts`** — removed `BOULEVARD_RE`, `DISTRICTS`, and `nameFilter`; added `VALID_MODES` export.
+- **`lib/streetData.ts`** — `buildStreetInfo(elements, lang)` takes injected `LanguageProfile`; removed all inline language helpers.
+- **`lib/streetFetch.ts`** — query builders take `CityConfig`; removed `WIDE_BBOX` / hardcoded `"София"`.
+- **`scripts/refresh-streets.ts`** — uses `getCity('sofia')` + `getLanguage(city.language)`; no hardcoded strings.
+- **`components/GameMapInner.tsx`** — removed `CFG` import; map inits without center/zoom; `fitBounds` to loaded street geometry after polylines are drawn.
+- **`app/sitemap.ts`** — uses `getCity('sofia').districts` instead of `DISTRICTS`.
+
+## Phase B — DB + city threading (DONE)
+
+> DB migration + all 6 caches city-keyed + city through all APIs + client + CitySwitcher.
+
+### What was completed
+- **`supabase/migrations/0001_add_city.sql`** — adds `city text not null default 'sofia'` to `street_data`, `scores`, `map_plays`; rebuilds PKs and indexes; recreates `leaderboard` view partitioned by `(city, mode, submode)`; updates `save_score` and `increment_map_plays` RPCs with `p_city text default 'sofia'`.
+- **`supabase/schema.sql`** — updated to reflect canonical post-migration schema.
+- **`app/api/streets/route.ts`** — accepts `?city`, validates, defaults to `DEFAULT_CITY`; cache key is `${city}:${mode}:${name}`.
+- **`app/api/scores/route.ts`** — reads `city` from body, passes `p_city` to RPC; rank query filters by city.
+- **`app/api/track-play/route.ts`** — reads `city` from body, passes `p_city` to RPC.
+- **`app/api/neighbourhoods/route.ts`** — per-city `Map<string, CacheEntry>` cache; DB query filters by city.
+- **`app/api/popular-modes/route.ts`** — accepts `?city`; DB query filters by city.
+- **`app/leaderboard/[mode]/page.tsx`** — accepts `?city`; leaderboard + map_plays queries filter by city.
+- **`components/CitySwitcher.tsx`** (NEW) — static pill when `CITIES` has 1 entry; `<select>` dropdown when ≥2.
+- **`components/GameCanvas.tsx`** — `city` in reducer state; `SET_CITY` action; all 3 client caches city-keyed (`Map<cityId,…>` / `${cityId}:${name}` keys); city synced to `localStorage` + `?city=` URL param; boulevard filter uses `getLanguage(activeCity.language).boulevardMatcher`; pending-score replay guarded by `pendingScoreCheckedRef`.
+- **`components/DistrictPicker.tsx`** — accepts `districts: string[]` prop.
+- **`components/NeighbourhoodPicker.tsx`** — accepts `city: string` prop; re-fetches on city change.
+- **`components/EndScreen.tsx`** — `city` prop; included in scores POST body + localStorage pending blob.
+- **`components/MapPreview.tsx`** — `city` prop; leaderboard query filters by city.
+
+### To deploy Phase B
+1. Apply `supabase/migrations/0001_add_city.sql` in the Supabase SQL editor.
+2. Verify: `select city, mode, count(*) from street_data group by 1,2 order by 1,2;` — all rows show `city='sofia'`.
+3. Push to git → Vercel auto-deploys.
+
+### How a new city is added (Phase C)
+1. Add an entry to `CITIES` in `lib/cities.ts` with `id`, `displayName`, `displayNameLocal`, `country`, `language`, `bbox`, `osmAreaName`, and `districts`.
+2. Run `npm run refresh-streets -- --city=<id>` to ingest street data.
+3. Deploy. `CitySwitcher` lists it automatically.
+
+# Phase 1 — Implementation Log (archived)
+
+> This section is preserved as historical context. See "Implementation Status" above for the current state.
 
 > Status: **DONE — awaiting review.** Do not start Phase 2 until this is reviewed.
 
