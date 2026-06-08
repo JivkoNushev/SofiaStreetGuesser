@@ -1,19 +1,16 @@
 import type { HighwayType } from './constants';
-import { getLanguage } from './languages';
 
 export interface ModeConfig {
-  label:       string;
-  highways:    Set<HighwayType>;
-  nameFilter?: (name: string) => boolean;
-  max:         number;
+  label:    string;
+  highways: Set<HighwayType>;
+  max:      number;
 }
 
 export const MODES: Record<string, ModeConfig> = {
   easy: {
-    label:      'Easy',
-    highways:   new Set(['trunk', 'primary', 'secondary', 'tertiary', 'residential']),
-    nameFilter: (name: string) => getLanguage('bg').boulevardMatcher(name),
-    max:        25,
+    label:    'Easy',
+    highways: new Set(['trunk', 'primary', 'secondary', 'tertiary', 'residential']),
+    max:      25,
   },
   normal: {
     label:    'Normal',
