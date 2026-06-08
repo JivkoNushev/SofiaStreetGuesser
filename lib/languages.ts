@@ -67,11 +67,7 @@ const bg: LanguageProfile = {
     return hasCyrillic(name) ? expandBg(name) : expandEn(name);
   },
   chooseName(tags) {
-    // Mirrors lib/streetData.ts as-is, including the (currently redundant) Cyrillic
-    // branch — kept faithful for Phase 1; can be tidied when streetData.ts is rewired.
-    if (tags['name:bg']) return tags['name:bg'];
-    if (hasCyrillic(tags.name)) return tags.name;
-    return tags.name;
+    return tags['name:bg'] ?? tags.name;
   },
   boulevardMatcher: (name) => BG_BOULEVARD_RE.test(name),
 };

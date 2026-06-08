@@ -9,7 +9,7 @@ import DistrictPicker from './DistrictPicker';
 import NeighbourhoodPicker from './NeighbourhoodPicker';
 import MapPreview from './MapPreview';
 import ScrollRow from './ScrollRow';
-import { CFG } from '@/lib/constants';
+import { MAX_ATTEMPTS } from '@/lib/constants';
 import { MODES, VALID_MODES } from '@/lib/modes';
 import { shuffle, fmt } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -370,12 +370,12 @@ export default function GameCanvas() {
       const newAttempts = state.attempts + 1;
       dispatch({ type: 'WRONG', name, newAttempts });
 
-      if (newAttempts >= CFG.maxAttempts) {
+      if (newAttempts >= MAX_ATTEMPTS) {
         dispatch({ type: 'REVEAL', name: target });
         showToast('✗  Time\'s up — revealing street', 'w');
         setTimeout(() => dispatch({ type: 'ADVANCE' }), 2700);
       } else {
-        const left = CFG.maxAttempts - newAttempts;
+        const left = MAX_ATTEMPTS - newAttempts;
         showToast(`✗  Wrong!  ${left} attempt${left > 1 ? 's' : ''} left`, 'w');
       }
     }
@@ -669,7 +669,7 @@ export default function GameCanvas() {
           <div className="targetName">{currentName}</div>
           <div className="attemptsRow">
             <span className="attLabel">Attempts:</span>
-            {Array.from({ length: CFG.maxAttempts }, (_, i) => (
+            {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
               <span key={i} className={`dot${i < state.attempts ? ' used' : ''}`} />
             ))}
           </div>
