@@ -58,6 +58,25 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [notAuthed, setNotAuthed] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch('/api/account/data');
+      if (!res.ok) throw new Error('Failed to fetch data');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'streetguesser-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   useEffect(() => {
     fetch('/api/account/data')
@@ -218,7 +237,13 @@ export default function AccountPage() {
 
         {activeTab === 'settings' && (
           <div>
-            <h2 className="acctSectionTitle">Danger Zone</h2>
+            <h2 className="acctSectionTitle">Your Data</h2>
+            <p className="acctSettingsSub">Download a copy of all data we hold about you — your profile, scores, and stats — as a JSON file.</p>
+            <button className="acctBtnSecondary" onClick={handleDownload} disabled={downloading}>
+              {downloading ? 'Downloading…' : 'Download my data'}
+            </button>
+
+            <h2 className="acctSectionTitle" style={{ marginTop: '2rem' }}>Danger Zone</h2>
             <p className="acctSettingsSub">Permanently delete your account and all associated scores. This cannot be undone.</p>
             <DeleteButton />
           </div>
