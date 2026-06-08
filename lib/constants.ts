@@ -1,6 +1,4 @@
 export const CFG = {
-  center:      [42.6977, 23.3219] as [number, number],
-  zoom:        13,
   maxAttempts: 3,
 };
 
@@ -20,10 +18,6 @@ export const ST = {
 } as const;
 
 export const OVERPASS = 'https://overpass-api.de/api/interpreter';
-
-export const MAIN_QUERY = `[out:json][timeout:60];
-(way["highway"~"^(trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"]["name"](42.63,23.25,42.74,23.43););
-out geom;`;
 
 export const TILE_URL =
   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png';

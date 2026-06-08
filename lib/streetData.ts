@@ -1,4 +1,5 @@
 import { HIERARCHY } from './constants';
+import type { LanguageProfile } from './languages';
 
 export interface StreetInfo {
   [name: string]: {
@@ -14,61 +15,12 @@ export interface OverpassElement {
   geometry?: { lat: number; lon: number }[];
 }
 
-function hasCyrillic(s: string): boolean {
-  return /[Ѐ-ӿ]/.test(s);
-}
-
-// Expand Bulgarian prefix abbreviations to their full canonical form.
-// "бул. Витоша" → "Булевард Витоша"
-// "ул. Граф Игнатиев" → "Улица Граф Игнатиев"
-function expandBg(name: string): string {
-  return name
-    .replace(/^бул\.\s*/iu,  'Булевард ')
-    .replace(/^бул\s+/iu,    'Булевард ')
-    .replace(/^ул\.\s*/iu,   'Улица ')
-    .replace(/^ул\s+/iu,     'Улица ')
-    .replace(/^пл\.\s*/iu,   'Площад ')
-    .replace(/^пл\s+/iu,     'Площад ')
-    .replace(/^пр\.\s*/iu,   'Проспект ')
-    .replace(/^пр\s+/iu,     'Проспект ')
-    .replace(/^кв\.\s*/iu,   'Квартал ')
-    .replace(/^ж\.к\.\s*/iu, 'Жилищен комплекс ')
-    .trim();
-}
-
-// Normalise English prefix abbreviations so different spellings merge.
-// "Blvd. Vitosha" / "Boulevard Vitosha" / "Bul. Vitosha" → "Boulevard Vitosha"
-// Suffix forms ("Vitosha Boulevard") are left as-is; we cannot safely translate
-// the proper-name part without a transliteration dictionary.
-function expandEn(name: string): string {
-  return name
-    .replace(/^blvd\.?\s+/i,   'Boulevard ')
-    .replace(/^bul\.?\s+/i,    'Boulevard ')
-    .replace(/^str\.?\s+/i,    'Street ')
-    .replace(/^sq\.?\s+/i,     'Square ')
-    .replace(/^ave\.?\s+/i,    'Avenue ')
-    .trim();
-}
-
-function normalizeName(name: string): string {
-  name = name.trim();
-  return hasCyrillic(name) ? expandBg(name) : expandEn(name);
-}
-
-// Pick the best name from a way's OSM tags.
-// Priority: explicit name:bg tag > any Cyrillic name > Latin fallback
-function chooseName(tags: Record<string, string>): string {
-  if (tags['name:bg']) return tags['name:bg'];
-  if (hasCyrillic(tags.name)) return tags.name;
-  return tags.name;
-}
-
-export function buildStreetInfo(elements: OverpassElement[]): StreetInfo {
+export function buildStreetInfo(elements: OverpassElement[], lang: LanguageProfile): StreetInfo {
   const info: StreetInfo = {};
   for (const el of elements) {
     if (el.type !== 'way' || !el.tags?.name || !el.geometry?.length) continue;
 
-    const name = normalizeName(chooseName(el.tags));
+    const name = lang.normalizeName(lang.chooseName(el.tags));
 
     const hw = el.tags.highway;
     if (!info[name]) {

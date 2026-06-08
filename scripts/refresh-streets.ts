@@ -14,8 +14,9 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
-import { fetchMainFull, fetchDistrictFull, fetchNeighbourhoodFull } from '../lib/streetFetch';
-import { DISTRICTS } from '../lib/modes';
+import { fetchMainFull, fetchDistrictFull, fetchNeighbourhoodFull, fetchElementsFromOverpass } from '../lib/streetFetch';
+import { getCity } from '../lib/cities';
+import { getLanguage } from '../lib/languages';
 import { OVERPASS } from '../lib/constants';
 import type { StreetInfo } from '../lib/streetData';
 
@@ -33,6 +34,9 @@ const db = createClient(supabaseUrl, serviceRoleKey, {
 
 const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 const DELAY_MS = 3000;
+
+const city = getCity('sofia');
+const lang = getLanguage(city.language);
 
 async function upsert(mode: string, submode: string, data: StreetInfo) {
   const { error } = await db.from('street_data').upsert({
@@ -52,25 +56,20 @@ function parseArg(flag: string): string[] {
 }
 
 async function fetchAllNeighbourhoodNames(): Promise<string[]> {
+  const bbox = city.bbox.join(',');
   const query =
     `[out:json][timeout:30];\n` +
     `(\n` +
-    `  node["place"~"^(neighbourhood|suburb|quarter)$"](42.45,23.05,42.92,23.70);\n` +
-    `  relation["place"~"^(neighbourhood|suburb|quarter)$"](42.45,23.05,42.92,23.70);\n` +
+    `  node["place"~"^(neighbourhood|suburb|quarter)$"](${bbox});\n` +
+    `  relation["place"~"^(neighbourhood|suburb|quarter)$"](${bbox});\n` +
     `);\n` +
     `out tags;`;
-  const res = await fetch(OVERPASS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'StreetGuesser/2.0' },
-    body: 'data=' + encodeURIComponent(query),
-  });
-  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
-  const json = await res.json();
+  const elements = await fetchElementsFromOverpass(query);
   const seen = new Set<string>();
-  return (json.elements as { tags?: { name?: string } }[])
+  return (elements as { tags?: { name?: string } }[])
     .map(el => el.tags?.name)
     .filter((n): n is string => !!n && !seen.has(n) && !!seen.add(n))
-    .sort((a, b) => a.localeCompare(b, 'bg'));
+    .sort((a, b) => a.localeCompare(b, lang.collation));
 }
 
 async function main() {
@@ -82,19 +81,20 @@ async function main() {
 
   // 1. Main city (skipped when retrying specific districts/neighbourhoods)
   if (!partial) {
-    process.stdout.write('Fetching main Sofia data… ');
-    const main = await fetchMainFull();
+    process.stdout.write(`Fetching main ${city.displayName} data… `);
+    const main = await fetchMainFull(city);
     await upsert('main', '', main);
     console.log(`✓  ${Object.keys(main).length} streets`);
     await delay(DELAY_MS);
   }
 
   // 2. Districts (skipped when only fetching neighbourhoods)
-  const districtsToFetch = neighbourhoodsOnly ? [] : onlyDistricts.length > 0 ? onlyDistricts : DISTRICTS;
+  const allDistricts = city.districts ?? [];
+  const districtsToFetch = neighbourhoodsOnly ? [] : onlyDistricts.length > 0 ? onlyDistricts : allDistricts;
   for (const district of districtsToFetch) {
     process.stdout.write(`Fetching district: ${district}… `);
     try {
-      const data = await fetchDistrictFull(district);
+      const data = await fetchDistrictFull(district, city);
       await upsert('district', district, data);
       console.log(`✓  ${Object.keys(data).length} streets`);
     } catch (err) {
@@ -115,7 +115,7 @@ async function main() {
   for (const name of neighbourhoodNames) {
     process.stdout.write(`Fetching neighbourhood: ${name}… `);
     try {
-      const data = await fetchNeighbourhoodFull(name);
+      const data = await fetchNeighbourhoodFull(name, city);
       if (Object.keys(data).length === 0) {
         console.log('(empty, skipped)');
         continue;

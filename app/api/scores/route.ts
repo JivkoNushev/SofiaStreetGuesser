@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-
-const VALID_MODES = new Set(['easy', 'normal', 'hard', 'district', 'neighbourhood']);
+import { VALID_MODES } from '@/lib/modes';
 const MAX_TOTAL   = 200;
 const MAX_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
 

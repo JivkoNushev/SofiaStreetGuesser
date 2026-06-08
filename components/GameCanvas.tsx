@@ -10,13 +10,12 @@ import NeighbourhoodPicker from './NeighbourhoodPicker';
 import MapPreview from './MapPreview';
 import ScrollRow from './ScrollRow';
 import { CFG } from '@/lib/constants';
-import { MODES } from '@/lib/modes';
+import { MODES, VALID_MODES } from '@/lib/modes';
 import { shuffle, fmt } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/isConfigured';
 import type { StreetInfo } from '@/lib/streetData';
 
-const VALID_MODES = new Set(['easy', 'normal', 'hard', 'district', 'neighbourhood']);
 
 function isValidPendingScore(v: unknown): v is {
   mode: string; submode: string | null;

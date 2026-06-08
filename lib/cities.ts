@@ -13,7 +13,10 @@
 //
 // Deliberately ABSENT (see the Architecture Review for why):
 //   - center / zoom / bounds → the map fits to the loaded street geometry instead.
-//   - districts list         → derived from the street_data table, not hardcoded.
+//
+// districts is present as an INGEST-ONLY field (like bbox/osmAreaName): the ingest
+// script needs to know which administrative areas to download. At runtime the API
+// no longer validates against this list — it trusts the street_data table instead.
 //
 // Phase 1 adds this with ZERO consumers; existing behaviour is unchanged. Phase 2
 // points constants / modes / streetData / streetFetch / refresh-streets at it.
@@ -35,6 +38,8 @@ export interface CityConfig {
   bbox: [number, number, number, number];
   /** OSM administrative area name for the main-area query. Ingest-only. */
   osmAreaName: string;
+  /** Administrative district names to fetch during ingest. Ingest-only. */
+  districts?: string[];
 }
 
 // Sofia — values mirrored from the current hardcoded constants:
@@ -49,6 +54,13 @@ const sofia: CityConfig = {
   language: 'bg',
   bbox: [42.45, 23.05, 42.92, 23.70],
   osmAreaName: 'София',
+  districts: [
+    'Банкя', 'Витоша', 'Връбница', 'Възраждане', 'Изгрев',
+    'Илинден', 'Искър', 'Красна поляна', 'Красно село', 'Кремиковци',
+    'Лозенец', 'Люлин', 'Младост', 'Надежда', 'Нови Искър',
+    'Оборище', 'Овча купел', 'Панчарево', 'Подуяне', 'Сердика',
+    'Слатина', 'Средец', 'Студентски', 'Триадица',
+  ],
 };
 
 export const CITIES: Record<string, CityConfig> = { sofia };
